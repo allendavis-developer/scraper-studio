@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>WebHarvest fixture</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; max-width: 760px; }
+      .item { padding: 10px; border: 1px solid #ccc; margin: 8px 0; }
+      .name { font-weight: bold; }
+      .price { color: green; }
+      #menu ul { display: none; }
+      #menu:hover ul, #menu.open ul { display: block; }
+      button { font: inherit; padding: 6px 10px; margin: 4px; }
+      input, select { font: inherit; padding: 5px; }
+      #status { padding: 8px; background: #eef; margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Fixture</h1>
+
+    <p>
+      <label>Search: <input id="q" type="text" placeholder="type here" /></label>
+      <button id="searchBtn">Search</button>
+    </p>
+
+    <p>
+      <label>Framework-controlled: <input id="ctrl" type="text" /></label>
+    </p>
+
+    <p>
+      <label>Color:
+        <select id="sel">
+          <option value="">— pick —</option>
+          <option value="red">Red</option>
+          <option value="green">Green</option>
+          <option value="blue">Blue</option>
+        </select>
+      </label>
+    </p>
+
+    <p>
+      <label><input id="chk" type="checkbox" /> Subscribe</label>
+    </p>
+
+    <div id="menu">
+      Hover menu
+      <ul>
+        <li id="opt-alpha">Alpha</li>
+        <li id="opt-beta">Beta</li>
+      </ul>
+    </div>
+
+    <div id="hoverbox">hover-state: off</div>
+
+    <h2>Products</h2>
+    <!-- .price vs .was lets a test compare TWO elements inside the SAME card:
+         A and C are discounted (price < was), B is not. -->
+    <ul id="list">
+      <li class="item"><span class="name">Widget A</span> — <span class="price">$10.00</span> <span class="was">$12.00</span> <a class="more" href="detail.html">details</a></li>
+      <li class="item"><span class="name">Widget B</span> — <span class="price">$20.00</span> <span class="was">$20.00</span> <a class="more" href="detail.html">details</a></li>
+      <li class="item"><span class="name">Widget C</span> — <span class="price">$30.00</span> <span class="was">$45.00</span> <a class="more" href="detail.html">details</a></li>
+    </ul>
+
+    <!-- messy real-world text: the clean-up pipeline has to pull values out of it -->
+    <div id="messy">Price: £1,024.50 (inc VAT) — while stocks last</div>
+    <div id="sku">SKU-8871/A</div>
+    <div id="posted">Posted on 14 July 2026 by Ann</div>
+
+    <div id="status">status: idle</div>
+
+    <script>
+      const status = document.getElementById('status');
+      document.getElementById('searchBtn').addEventListener('click', () => {
+        status.textContent = 'searched: ' + document.getElementById('q').value;
+      });
+      document.getElementById('q').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') status.textContent = 'entered: ' + e.target.value;
+      });
+      document.getElementById('sel').addEventListener('change', (e) => {
+        status.textContent = 'color: ' + e.target.value;
+      });
+      document.getElementById('chk').addEventListener('change', (e) => {
+        status.textContent = 'subscribed: ' + e.target.checked;
+      });
+      const hb = document.getElementById('hoverbox');
+      hb.addEventListener('mouseenter', () => (hb.textContent = 'hover-state: on'));
+      document.querySelectorAll('#menu li').forEach((li) =>
+        li.addEventListener('click', () => (status.textContent = 'chose: ' + li.textContent))
+      );
+
+      // Simulate a React-style controlled input with a value tracker. A plain
+      // `el.value = x` + input event is IGNORED (tracker says no change) and the
+      // field is reset to state (empty) on the next "render" — exactly the
+      // Cash Converters bug. Only a write via the native prototype setter is
+      // seen as a real change and sticks.
+      (function () {
+        const ctrl = document.getElementById('ctrl');
+        const nativeDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+        let tracked = '';
+        let state = '';
+        Object.defineProperty(ctrl, 'value', {
+          configurable: true,
+          get() { return nativeDesc.get.call(this); },
+          set(v) { tracked = v; nativeDesc.set.call(this, v); }
+        });
+        ctrl.addEventListener('input', function () {
+          const cur = nativeDesc.get.call(ctrl);
+          if (cur === tracked) return; // ignored, like React
+          tracked = cur;
+          state = cur;
+        });
+        setInterval(function () {
+          const cur = nativeDesc.get.call(ctrl);
+          if (cur !== state) nativeDesc.set.call(ctrl, state); // re-render resets
+        }, 30);
+      })();
+    </script>
+  </body>
+</html>

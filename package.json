@@ -1,0 +1,27 @@
+{
+  "name": "scrape-studio",
+  "version": "0.1.0",
+  "description": "Scrape Studio — visual web scraper with point-and-click element selection, visual step programming, and CSV export.",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "test": "node test/expr-tests.js && node test/transform-tests.js && node test/scrape-tests.js",
+    "test:ui": "node test/ui-e2e.js && node test/legacy-e2e.js",
+    "test:all": "node test/expr-tests.js && node test/transform-tests.js && node test/scrape-tests.js && node test/ui-e2e.js && node test/legacy-e2e.js"
+  },
+  "keywords": [
+    "scraper",
+    "electron",
+    "web-scraping",
+    "csv",
+    "no-code"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "playwright": "^1.61.1",
+    "puppeteer": "^25.3.0"
+  }
+}
