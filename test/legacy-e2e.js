@@ -115,8 +115,8 @@ const legacyClean = {
     console.log('\n[1] old Scrape one / Set var / Add row job');
     await openJob('Legacy Job');
     const steps = await R(() => [...document.querySelectorAll('.step .kind')].map((k) => k.textContent));
-    check('old “Scrape one” and “Set var” both become 📥 Get value',
-      steps.filter((s) => /Get value/.test(s)).length === 3, JSON.stringify(steps));
+    check('old “Scrape one” and “Set var” both become the one Grab-value step',
+      steps.filter((s) => /Grab one value/.test(s)).length === 3, JSON.stringify(steps));
 
     const r1 = await run();
     check('it still produces the same rows', r1.rows.length === 2, `${r1.rows.length} rows`);

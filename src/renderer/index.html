@@ -35,29 +35,37 @@
 
       <div class="panel">
         <div class="panel-title">Add step</div>
+
+        <div class="palette-sub first">Get the data</div>
         <div class="step-palette" id="palette">
+          <button data-add="scrapeList" class="key-step" title="A repeating list (products, search results, table rows) → many rows at once">📋 Grab a list</button>
+          <button data-add="get" class="key-step" title="One value from the page → a named column">📥 Grab one value</button>
+        </div>
+
+        <div class="palette-sub">Do something on the page</div>
+        <div class="step-palette" id="palette-actions">
           <button data-add="click" title="Click an element">🖱️ Click</button>
+          <button data-add="type" title="Fill / type into a field (text, date, number)">⌨️ Fill field</button>
           <button data-add="clickText" title="Click element by its text (calendar day, dropdown option, tab)">🔤 Click text</button>
           <button data-add="select" title="Choose an option in a native dropdown">🔽 Select option</button>
           <button data-add="check" title="Check / uncheck a checkbox or radio">☑️ Check</button>
-          <button data-add="type" title="Fill / type into a field (text, date, number)">⌨️ Fill field</button>
           <button data-add="hover" title="Hover to reveal menus / tooltips">👆 Hover</button>
           <button data-add="key" title="Press a key (Enter, Tab, arrows…)">⌨ Press key</button>
-          <button data-add="wait" title="Pause for a fixed time">⏱️ Delay</button>
-          <button data-add="waitFor" title="Wait until an element appears">👁️ Wait for</button>
           <button data-add="scroll" title="Scroll the page">↕️ Scroll</button>
+          <button data-add="waitFor" title="Wait until an element appears (or disappears)">👁️ Wait for</button>
+          <button data-add="wait" title="Pause for a fixed time">⏱️ Delay</button>
           <button data-add="loadAll" title="Auto-scroll (and click ‘load more’) until everything is loaded">⤓ Load all</button>
-          <button data-add="get" title="Get one value from the page into a named column (or a working value for logic)">📥 Get value</button>
-          <button data-add="scrapeList" title="Scrape a repeating list — many rows at once">📋 Scrape list</button>
-        </div>
-        <div class="palette-sub">Logic</div>
-        <div class="step-palette" id="palette-logic">
           <button data-add="goto" title="Navigate to a URL (supports {{variables}})">🌐 Go to URL</button>
+          <button data-add="back" title="Go back to the previous page">⬅️ Go back</button>
+        </div>
+
+        <div class="palette-sub">Repeat &amp; decide</div>
+        <div class="step-palette" id="palette-logic">
+          <button data-add="forEach" title="Run a block once for every matching item — each pass makes a row">🔄 For each</button>
           <button data-add="if" title="Run a block only if a condition is true">❓ If / Else</button>
-          <button data-add="forEach" title="Run a block for each element matching a selector (scoped to it)">🔄 For each</button>
+          <button data-add="skip" title="Skip this item — no row for it, move on to the next one">⏭ Skip item</button>
           <button data-add="while" title="Repeat a block while a condition holds">🔁 While</button>
           <button data-add="repeat" title="Repeat a block a number of times">🔢 Repeat</button>
-          <button data-add="skip" title="Skip this item — no row for it, move on to the next one">⏭ Skip item</button>
           <button data-add="break" title="Exit the current loop entirely">⛔ Break</button>
         </div>
       </div>
@@ -66,12 +74,35 @@
         <div class="panel-title">
           Steps <span id="step-count" class="muted"></span>
         </div>
-        <ol id="steps" class="steps"></ol>
-        <div id="steps-empty" class="empty-hint">
-          No steps yet. Add steps from the palette above (use <b>Pick</b> inside a
-          step to point at elements), or press <b>Record</b>. For multi-page
-          scraping, use a <b>While</b> loop that clicks “next”.
+        <div id="steps-empty" class="start-card">
+          <div class="start-title">Start here — what do you want off this page?</div>
+          <button class="start-btn" data-add="scrapeList">
+            <span class="sb-icon">📋</span>
+            <span class="sb-text">
+              <b>A list of things</b>
+              <i>products, search results, table rows — many rows at once</i>
+            </span>
+          </button>
+          <button class="start-btn" data-add="get">
+            <span class="sb-icon">📥</span>
+            <span class="sb-text">
+              <b>Just one value</b>
+              <i>a price, a title, a total</i>
+            </span>
+          </button>
+          <button class="start-btn" data-add="forEach">
+            <span class="sb-icon">🔄</span>
+            <span class="sb-text">
+              <b>A list, with a rule per item</b>
+              <i>only the ones under £200 · open each one’s page</i>
+            </span>
+          </button>
+          <div class="start-foot">
+            Need to search or log in first? Do it in the browser →, or press
+            <b>● Record</b> and just do it — your clicks become steps.
+          </div>
         </div>
+        <ol id="steps" class="steps"></ol>
       </div>
 
       <div class="toolbar">

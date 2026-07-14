@@ -30,7 +30,7 @@ The app is a two-pane Electron desktop app:
 1. From the **dashboard**, create a **New scrape job** (name + start URL) or open
    an existing one. Every **Run** re-opens the job's start URL first, so a job is
    reproducible. (Change it anytime in the sidebar, or **⤒ Use current page**.)
-2. Add a **📋 Scrape list** step. In its dialog press **Pick** — the editor
+2. Add a **📋 Grab a list** step. In its dialog press **Pick** — the editor
    temporarily hides so you can see the page, click one repeating item (a product
    card, table row, search result), and the editor reopens with the selector
    filled. Scrape Studio generalizes it to match every sibling.
@@ -65,7 +65,7 @@ sites or accounts independently.
 
 ### Values, rows & control flow
 
-**📥 Get value** reads one thing off the page and gives it a **name**. You use
+**📥 Grab one value** reads one thing off the page and gives it a **name**. You use
 that one name everywhere — in a rule (*“price is less than 200”*) or in text
 (`{{title}}`). It is kept as either:
 
@@ -92,7 +92,7 @@ For each  .product-card
 
 | Step | What it does |
 |------|--------------|
-| 📥 Get value | Read **one** value into a named column (or working value): element **text / attribute / value / href / src / html / checked**, a **count**, **does it exist**, the **page URL**, or a **calculation**. Plus [clean-ups](#cleaning-up-messy-text-no-regex). |
+| 📥 Grab one value | Read **one** value into a named column (or working value): element **text / attribute / value / href / src / html / checked**, a **count**, **does it exist**, the **page URL**, or a **calculation**. Plus [clean-ups](#cleaning-up-messy-text-no-regex). |
 | 🌐 Go to URL | Navigate somewhere (supports `{{variables}}` — e.g. `…/page/{{i}}`) |
 | ❓ If / Else | Run the **Then** block when a condition is true, else the **Else** block |
 | 🔄 For each | Run a block **once per matching element**; selectors inside are relative to the current one, and each pass makes a row |
@@ -111,7 +111,7 @@ never silent.
 Block steps are **nested** in the step list; use the **+ add step** button under a
 block to add steps inside it.
 
-**Expressions** (Get value → *a calculation*, and `Repeat` count — conditions use
+**Expressions** (Grab one value → *a calculation*, and `Repeat` count — conditions use
 the visual builder above) support numbers, `"strings"`, values, `+ - * / %`, and
 functions like `number()`, `int()`, `round()`, `pad()`, `len()`, `lower()`,
 `contains()`. Values are typed — a `count` is a number (so `n > 2` works), and a
@@ -121,7 +121,7 @@ functions like `number()`, `int()`, `round()`, `pad()`, `len()`, `lower()`,
 URL, selectors), e.g. Fill `page {{ i + 1 }}`.
 
 **Multi-page example:** `Get more = does it exist? .next` → `While more is true` →
-{ Scrape list · Click `.next` · refresh `more` }. Each iteration's rows
+{ Grab a list · Click `.next` · refresh `more` }. Each iteration's rows
 accumulate. (This replaces the old fixed pagination panel.)
 
 ### Cleaning up messy text (no regex)
@@ -151,7 +151,7 @@ Repeat 31   (index variable: i)
   ├─ Fill  #to    = {{ pad(i+1,2) }}/07/2026
   ├─ Click  "Run report"
   ├─ Wait for  .results-row
-  └─ Scrape list  (row = .results-row; columns: … + a "date" column of
+  └─ Grab a list  (row = .results-row; columns: … + a "date" column of
                    type “Value / expression” = pad(i+1,2)+"/07/2026")
 ```
 
@@ -159,10 +159,10 @@ Each day's rows accumulate and are tagged with that day's date.
 
 ### Scraping aligned groups (name ↔ price on the same row)
 
-Use **one Scrape list**, not two scrapes. Two separate scrapes give you all the
+Use **one “Grab a list”**, not two grabs. Two separate scrapes give you all the
 names then all the prices, unaligned. Instead:
 
-1. **Scrape list → ① Pick the row**: click one *repeating item* (the whole card
+1. **Grab a list → ① Pick one row**: click one *repeating item* (the whole card
    / table row). It generalizes to every sibling.
 2. **② Add a column per value** and **Pick the value inside a row** (the name,
    the price…). Column selectors are **relative to the row**, so the name and
@@ -211,14 +211,14 @@ a following **Click** on the search button submits the actual text.
 | ↕️ Scroll | Scroll to top / bottom, or by N pixels (for lazy-loaded lists) |
 | ⤓ Load all | Keep scrolling (and clicking “load more”) until the page stops growing — infinite-scroll lists |
 | ⬅️ Go back | Return to the previous page (after visiting a detail page) |
-| 📥 Get value | Capture a single named value (see above) |
-| 📋 Scrape list | Capture every matching row × its columns → many rows at once |
+| 📥 Grab one value | Capture a single named value (see above) |
+| 📋 Grab a list | Capture every matching row × its columns → many rows at once |
 
 **Extraction modes:** text, inner HTML, an attribute, `href`, `src`, a
 form-control **value**, or **checked** state.
 
-**Single vs list:** `Get value` columns collected outside a list (e.g. the page
-title) are repeated on every row produced by `Scrape list`, so you can tag rows
+**Single vs list:** `Grab one value` columns collected outside a list (e.g. the page
+title) are repeated on every row produced by `Grab a list`, so you can tag rows
 with page-level context.
 
 ### Record mode — for custom / complex widgets
@@ -267,7 +267,7 @@ app uses (`src/shared/page-actions.js`) against real sites via headless Chromium
 | `transform-tests` (37) | every text clean-up: numbers, text-between, dates, regex |
 | `scrape-tests` (23) | the engine against **real sites**, headless |
 | `ui-e2e` (69) | the **real app** driven via Playwright: picker + Esc-cancel, run, column shaping, action steps, controlled-input fill, recorder, zoom, jobs dashboard, control flow, **relative picking inside a For each**, comparing two values in one card, **Skip item**, self-committing rows, clean-up pipeline + live preview, and the "why did I get 0 rows?" explanations |
-| `legacy-e2e` (6) | **old saved jobs still run** — `Scrape one` / `Set var` / `Add row` migrate to `Get value` and produce identical rows |
+| `legacy-e2e` (6) | **old saved jobs still run** — `Scrape one` / `Set var` / `Add row` migrate to `Grab one value` and produce identical rows |
 
 Sample CSVs land in `test/output/`.
 

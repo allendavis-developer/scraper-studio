@@ -22,12 +22,12 @@ the common cases; the "Advanced" notes are optional.
   **steps**. Every run opens the start URL first. Jobs auto-save; the launch
   **dashboard** lists them. Each job keeps its **own login/session**.
 - **Steps** run top to bottom. Some steps are **actions** (click, type…), some
-  **read data** (Get value, Scrape list), some are **logic** (if, loops).
+  **read data** (Grab a value, Grab a list), some are **logic** (if, loops).
 - **The results table** is your output → **Export CSV**.
 
 ### Values, rows, and how they get into the table
 
-**📥 Get value** reads one thing off the page and gives it a **name**
+**📥 Grab one value** reads one thing off the page and gives it a **name**
 (`price`, `title`). That name is how you use it everywhere — in a rule
 (*"price is less than 200"*) or in text (`{{title}}`).
 
@@ -56,7 +56,7 @@ For each  product card
                     ← the row commits itself: { title, price }
 ```
 
-**Scrape list** is the shortcut for the simple case: one page, one repeating
+**Grab a list** is the shortcut for the simple case: one page, one repeating
 list, many rows at once. Use it when you don't need per-item logic.
 
 ---
@@ -83,8 +83,8 @@ list, many rows at once. Use it when you don't need per-item logic.
 **Getting data**
 | Step | What it does |
 |------|--------------|
-| 📥 Get value | Read **one** value into a named **column** (or a working value). Text, a link, an attribute, a count, "does it exist", the page URL, or a calculation. |
-| 📋 Scrape list | Grab a repeating list → **many rows at once**, with columns. |
+| 📥 Grab one value | Read **one** value into a named **column** (or a working value). Text, a link, an attribute, a count, "does it exist", the page URL, or a calculation. |
+| 📋 Grab a list | Grab a repeating list → **many rows at once**, with columns. |
 
 Both can **clean up** the text they find — see
 [Cleaning up messy text](#cleaning-up-messy-text).
@@ -112,7 +112,7 @@ When you Pick a single element, you're asked **"which element(s)?"**:
 - **Any matching (first of N)** — the general kind (e.g. *any* price → the first
   one). Choose this when you want "the first price", or when you'll loop.
 
-For **Scrape list** and **For each**, you pick one **repeating item** (a whole
+For **Grab a list** and **For each**, you pick one **repeating item** (a whole
 card/row); Scrape Studio generalizes it to match all of them.
 
 ---
@@ -154,7 +154,7 @@ Two things worth knowing:
   `July 14, 2026` too, and always give back `2026-07-14` (sorts correctly in
   Excel).
 
-In **Scrape list**, each column has its own 🧹 button for its own clean-ups.
+In **Grab a list**, each column has its own 🧹 button for its own clean-ups.
 
 ---
 
@@ -237,34 +237,34 @@ and your variable from a list. Combine rules with ALL (and) or ANY (or).
 ## Cookbook: real scraping jobs
 
 ### 1. A simple list (name + price, aligned)
-1. **Scrape list** → **Pick** one product card (the repeating box).
+1. **Grab a list** → **Pick** one product card (the repeating box).
 2. **Add column** `name` → **Pick** the name inside the card.
 3. **Add column** `price` → **Pick** the price inside the card.
 4. **Run** → one row per product, columns aligned. **Export CSV**.
 
 > Do **not** use two separate scrapes for name and price — that gives you all the
-> names then all the prices, unaligned. One Scrape list with two columns keeps
+> names then all the prices, unaligned. One “Grab a list” with two columns keeps
 > them together.
 
 ### 1b. The same list, but with a filter or a rule
 Use **For each** + **Skip item** when you need logic per item:
 1. **For each** → Pick one product card.
-2. **Get value** `price` → Pick the price (clean-up: **Number**).
+2. **Grab one value** `price` → Pick the price (clean-up: **Number**).
 3. **If** `price` is greater than `200` → **Skip item**.
-4. **Get value** `name` → Pick the name.
-5. **Run** → one row per *surviving* card. No Add row anywhere.
+4. **Grab one value** `name` → Pick the name.
+5. **Run** → one row per *surviving* card. Rows commit themselves.
 
 ### 2. Search, then scrape the results
 1. **Fill field** the search box (e.g. `xbox series x`).
 2. **Press key** Enter (or **Click** the search button).
 3. **Wait for** a result element to appear.
-4. **Scrape list** the results.
+4. **Grab a list** the results.
 
 ### 3. Multiple pages ("Next" button)
 ```
 Get     hasNext = Does it exist?  .next      → working value
 While   hasNext is true
-  Scrape list   the results
+  Grab a list   the results
   Click   .next
   Wait for      a result element
   Get     hasNext = Does it exist?  .next    ← refresh it each lap
@@ -274,7 +274,7 @@ rule checks a `hasNext` variable you refresh each loop.
 
 ### 4. Infinite scroll / "Load more"
 1. **Load all** (optionally give it the "load more" button).
-2. **Scrape list**.
+2. **Grab a list**.
 
 ### 5. Loop over cards; for each, open its detail page, scrape it, come back
 This is the powerful one — **For each** makes it clean:
@@ -312,7 +312,7 @@ Repeat 31   (index variable: i)
   Fill  #to   = {{ pad(i+1, 2) }}/07/2026
   Click  "Run report"
   Wait for  a result row
-  Scrape list  (columns … + a "date" column of type "Value / expression" = pad(i+1,2)+"/07/2026")
+  Grab a list  (columns … + a "date" column of type "Value / expression" = pad(i+1,2)+"/07/2026")
 ```
 `pad(i+1, 2)` makes `01, 02, … 31`. Each day's rows are tagged with the date.
 
@@ -325,7 +325,7 @@ the login.
 
 ## Expressions (optional / advanced)
 
-Used in **Get value → a calculation**, **Repeat count**, and Scrape-list
+Used in **Grab one value → a calculation**, **Repeat count**, and list
 "Value / expression" columns. Everyday users can ignore these — for pulling
 values out of text, use [clean-ups](#cleaning-up-messy-text) instead; they cover
 the same ground without typing anything.

@@ -127,7 +127,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // ---- picker used from INSIDE a step editor ------------------------
     console.log('\n[1] picker from inside a step editor (editor hides, then reopens filled)');
     await clearSteps();
-    await R(() => document.querySelector('#palette [data-add="get"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
     await sleep(150);
     await R(() => document.querySelector('#modal-body .mini-pick').click()); // click Pick
     await sleep(250);
@@ -151,7 +151,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await sleep(300);
     const after = await R(() => {
       const open = !document.getElementById('modal').classList.contains('hidden');
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const sel = document.querySelector('#modal-body .sel-input');
       return { open, selector: sel ? sel.value : null };
     });
     check('editor reopens after choosing', after.open, null);
@@ -162,7 +162,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // ---- Esc cancels a pick, closes the editor, discards the step -----
     console.log('\n[2] Esc cancels the pick, discards the step, back to normal');
     await clearSteps();
-    await R(() => document.querySelector('#palette [data-add="get"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
     await sleep(150);
     await R(() => document.querySelector('#modal-body .mini-pick').click());
     await sleep(200);
@@ -181,10 +181,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // ---- scrape list + run (from start URL) ---------------------------
     console.log('\n[3] build Scrape-list and Run (run opens the start URL first)');
     await clearSteps();
-    await R(() => document.querySelector('#palette [data-add="scrapeList"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="scrapeList"]').click());
     await sleep(150);
     await R(() => {
-      const rs = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const rs = document.querySelector('#modal-body .sel-input');
       rs.value = 'li.item'; rs.dispatchEvent(new Event('input', { bubbles: true }));
       const r0 = document.querySelectorAll('.field-row')[0];
       const ins = r0.querySelectorAll('input');
@@ -239,10 +239,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
 
     await runSingle(async () => {
-      await R(() => document.querySelector('#palette [data-add="select"]').click());
+      await R(() => document.querySelector('#sidebar .step-palette [data-add="select"]').click());
       await sleep(120);
       await R(() => {
-        const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+        const sel = document.querySelector('#modal-body .sel-input');
         sel.value = '#sel'; sel.dispatchEvent(new Event('input', { bubbles: true }));
         const by = document.querySelector('#modal-body select');
         by.value = 'value'; by.dispatchEvent(new Event('change', { bubbles: true }));
@@ -254,10 +254,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('Select option set <select> to blue', (await G(`document.querySelector('#sel').value`)) === 'blue');
 
     await runSingle(async () => {
-      await R(() => document.querySelector('#palette [data-add="check"]').click());
+      await R(() => document.querySelector('#sidebar .step-palette [data-add="check"]').click());
       await sleep(120);
       await R(() => {
-        const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+        const sel = document.querySelector('#modal-body .sel-input');
         sel.value = '#chk'; sel.dispatchEvent(new Event('input', { bubbles: true }));
       });
       await R(() => document.getElementById('modal-save').click());
@@ -265,10 +265,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('Check step ticked the checkbox', (await G(`document.querySelector('#chk').checked`)) === true);
 
     await runSingle(async () => {
-      await R(() => document.querySelector('#palette [data-add="hover"]').click());
+      await R(() => document.querySelector('#sidebar .step-palette [data-add="hover"]').click());
       await sleep(120);
       await R(() => {
-        const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+        const sel = document.querySelector('#modal-body .sel-input');
         sel.value = '#hoverbox'; sel.dispatchEvent(new Event('input', { bubbles: true }));
       });
       await R(() => document.getElementById('modal-save').click());
@@ -276,7 +276,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('Hover fired mouseenter', (await G(`document.querySelector('#hoverbox').textContent`)).includes('on'));
 
     await runSingle(async () => {
-      await R(() => document.querySelector('#palette [data-add="clickText"]').click());
+      await R(() => document.querySelector('#sidebar .step-palette [data-add="clickText"]').click());
       await sleep(120);
       await R(() => {
         const txt = document.querySelector('#modal-body input');
@@ -287,10 +287,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('Click-text clicked the "Beta" item', (await G(`document.querySelector('#status').textContent`)).includes('Beta'));
 
     await runSingle(async () => {
-      await R(() => document.querySelector('#palette [data-add="type"]').click());
+      await R(() => document.querySelector('#sidebar .step-palette [data-add="type"]').click());
       await sleep(120);
       await R(() => {
-        const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+        const sel = document.querySelector('#modal-body .sel-input');
         sel.value = '#q'; sel.dispatchEvent(new Event('input', { bubbles: true }));
         const val = document.querySelectorAll('#modal-body input')[1];
         val.value = 'laptop'; val.dispatchEvent(new Event('input', { bubbles: true }));
@@ -305,10 +305,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // Framework-controlled input (the Cash Converters bug): the value must
     // survive the component's re-render instead of being cleared.
     await runSingle(async () => {
-      await R(() => document.querySelector('#palette [data-add="type"]').click());
+      await R(() => document.querySelector('#sidebar .step-palette [data-add="type"]').click());
       await sleep(120);
       await R(() => {
-        const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+        const sel = document.querySelector('#modal-body .sel-input');
         sel.value = '#ctrl'; sel.dispatchEvent(new Event('input', { bubbles: true }));
         const val = document.querySelectorAll('#modal-body input')[1];
         val.value = 'persist-me'; val.dispatchEvent(new Event('input', { bubbles: true }));
@@ -381,10 +381,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     console.log('\n[7] dashboard lists jobs and reopening restores them');
     // Give the current job some steps, then open the dashboard.
     await clearSteps();
-    await R(() => document.querySelector('#palette [data-add="scrapeList"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="scrapeList"]').click());
     await sleep(150);
     await R(() => {
-      const rs = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const rs = document.querySelector('#modal-body .sel-input');
       rs.value = 'li.item'; rs.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
@@ -411,39 +411,40 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     console.log('\n[8] control flow — working values, if, and nested blocks');
     await clearSteps();
     // Get value: n = how many .item elements (a WORKING value — not a CSV column)
-    await R(() => document.querySelector('#palette [data-add="get"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
     await sleep(120);
     await R(() => {
-      const name = document.querySelector('#modal-body input'); // first input = Name
+      const name = document.querySelector('#modal-body .name-input');
       name.value = 'n'; name.dispatchEvent(new Event('input', { bubbles: true }));
-      const tgt = document.querySelectorAll('#modal-body select')[0]; // [0]=Keep it as
+      const tgt = document.querySelector('#modal-body .target-select');
       tgt.value = 'var'; tgt.dispatchEvent(new Event('change', { bubbles: true }));
-      const src = document.querySelectorAll('#modal-body select')[1]; // [1]=Get
+      const src = document.querySelector('#modal-body .src-select');
       src.value = 'count'; src.dispatchEvent(new Event('change', { bubbles: true }));
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = '.item'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
     // if (n is equal to 3) — built with the VISUAL condition builder (no typing operators)
-    await R(() => document.querySelector('#palette-logic [data-add="if"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="if"]').click());
     await sleep(120);
     await R(() => {
-      const rule = document.querySelectorAll('.cond-rule input'); // [left, right]
-      rule[0].value = 'n'; rule[0].dispatchEvent(new Event('input', { bubbles: true }));
-      // op select default 'eq' (is equal to)
-      rule[1].value = '3'; rule[1].dispatchEvent(new Event('input', { bubbles: true }));
+      // left is a DROPDOWN of the values you've grabbed; op defaults to "is equal to"
+      const left = document.querySelector('.cond-rule select');
+      left.value = 'n'; left.dispatchEvent(new Event('change', { bubbles: true }));
+      const right = document.querySelector('.cond-rule input');
+      right.value = '3'; right.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
     // into the Then block: add a Scrape list
     await R(() => document.querySelector('.add-in-block').click());
     await sleep(200);
     await R(() => {
-      const b = [...document.querySelectorAll('.type-menu button')].find((x) => /Scrape list/.test(x.textContent));
+      const b = [...document.querySelectorAll('.type-menu button')].find((x) => /Grab a list/.test(x.textContent));
       b.click();
     });
     await sleep(200);
     await R(() => {
-      const rs = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const rs = document.querySelector('#modal-body .sel-input');
       rs.value = 'li.item'; rs.dispatchEvent(new Event('input', { bubbles: true }));
       const r0 = document.querySelectorAll('.field-row')[0];
       const ins = r0.querySelectorAll('input');
@@ -471,7 +472,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // repeat loop runs its body N times (2 × 3 items = 6 rows)
     await clearSteps();
     await R(() => document.getElementById('clear-results').click());
-    await R(() => document.querySelector('#palette-logic [data-add="repeat"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="repeat"]').click());
     await sleep(120);
     await R(() => {
       const c = document.querySelector('#modal-body input'); // repeat count
@@ -481,12 +482,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.querySelector('.add-in-block').click());
     await sleep(200);
     await R(() => {
-      const b = [...document.querySelectorAll('.type-menu button')].find((x) => /Scrape list/.test(x.textContent));
+      const b = [...document.querySelectorAll('.type-menu button')].find((x) => /Grab a list/.test(x.textContent));
       b.click();
     });
     await sleep(200);
     await R(() => {
-      const rs = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const rs = document.querySelector('#modal-body .sel-input');
       rs.value = 'li.item'; rs.dispatchEvent(new Event('input', { bubbles: true }));
       const r0 = document.querySelectorAll('.field-row')[0];
       const ins = r0.querySelectorAll('input');
@@ -505,14 +506,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await clearSteps();
     await R(() => document.getElementById('clear-results').click());
     await loadFixture();
-    await R(() => document.querySelector('#palette [data-add="scrapeList"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="scrapeList"]').click());
     await sleep(150);
     // ① Pick the repeating row (list mode) — click near the top of a card
     await R(() => document.querySelectorAll('#modal-body .mini-pick')[0].click());
     await sleep(250);
     await guestClickAt('#list li.item', 0.5, 0.12);
     await sleep(450);
-    const rowSel = await R(() => document.querySelector('#modal-body input[placeholder="CSS selector"]').value);
+    const rowSel = await R(() => document.querySelector('#modal-body .sel-input').value);
     check('row selector picked matches many rows', /item/.test(rowSel), rowSel);
     // ② Pick the name column (relative to the row)
     await R(() => document.querySelector('.field-row .mini-pick').click());
@@ -561,7 +562,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     console.log('\n[11] expression column tags loop rows (the date-range pattern)');
     await clearSteps();
     await R(() => document.getElementById('clear-results').click());
-    await R(() => document.querySelector('#palette-logic [data-add="repeat"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="repeat"]').click());
     await sleep(120);
     await R(() => {
       const c = document.querySelector('#modal-body input');
@@ -571,12 +572,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.querySelector('.add-in-block').click());
     await sleep(200);
     await R(() => {
-      const b = [...document.querySelectorAll('.type-menu button')].find((x) => /Scrape list/.test(x.textContent));
+      const b = [...document.querySelectorAll('.type-menu button')].find((x) => /Grab a list/.test(x.textContent));
       b.click();
     });
     await sleep(200);
     await R(() => {
-      const rs = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const rs = document.querySelector('#modal-body .sel-input');
       rs.value = 'li.item'; rs.dispatchEvent(new Event('input', { bubbles: true }));
       const r0 = document.querySelectorAll('.field-row')[0];
       const ins = r0.querySelectorAll('input');
@@ -619,19 +620,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await clearSteps();
     await R(() => document.getElementById('clear-results').click());
     // column p = clean number of the first .price ("$10.00" → 10)
-    await R(() => document.querySelector('#palette [data-add="get"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
     await sleep(120);
     const getDefaults = await R(() => ({
-      target: document.querySelectorAll('#modal-body select')[0].value,
-      source: document.querySelectorAll('#modal-body select')[1].value
+      target: document.querySelector('#modal-body .target-select').value,
+      source: document.querySelector('#modal-body .src-select').value
     }));
     check('Get value defaults to a COLUMN (what people actually want)', getDefaults.target === 'column', getDefaults.target);
     await R(() => {
-      const name = document.querySelector('#modal-body input');
+      const name = document.querySelector('#modal-body .name-input');
       name.value = 'p'; name.dispatchEvent(new Event('input', { bubbles: true }));
-      document.querySelectorAll('#modal-body select')[1].value = 'text';
-      document.querySelectorAll('#modal-body select')[1].dispatchEvent(new Event('change', { bubbles: true }));
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      document.querySelector('#modal-body .src-select').value = 'text';
+      document.querySelector('#modal-body .src-select').dispatchEvent(new Event('change', { bubbles: true }));
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = '.price'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await addCleanup('number', null, null);
@@ -652,10 +653,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.getElementById('clear-results').click());
     await loadFixture();
     // For each  li.item
-    await R(() => document.querySelector('#palette-logic [data-add="forEach"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="forEach"]').click());
     await sleep(150);
     await R(() => {
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = 'li.item'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
@@ -672,15 +673,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
 
     // Set column name = THIS card's .name (scoped, relative selector)
-    await addInBlock('Get value');
+    await addInBlock('Grab one value');
     await R(() => {
-      document.querySelectorAll('#modal-body select')[0].value = 'column';
-      document.querySelectorAll('#modal-body select')[0].dispatchEvent(new Event('change', { bubbles: true }));
-      document.querySelector('#modal-body input').value = 'name';
-      document.querySelector('#modal-body input').dispatchEvent(new Event('input', { bubbles: true }));
-      document.querySelectorAll('#modal-body select')[1].value = 'text';
-      document.querySelectorAll('#modal-body select')[1].dispatchEvent(new Event('change', { bubbles: true }));
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      document.querySelector('#modal-body .target-select').value = 'column';
+      document.querySelector('#modal-body .target-select').dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector('#modal-body .name-input').value = 'name';
+      document.querySelector('#modal-body .name-input').dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#modal-body .src-select').value = 'text';
+      document.querySelector('#modal-body .src-select').dispatchEvent(new Event('change', { bubbles: true }));
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = '.name'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
@@ -688,21 +689,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // Click THIS card's detail link (scoped) → navigates to detail.html
     await addInBlock('Click'); // first match is "Click" (not Click text)
     await R(() => {
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = 'a.more'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
 
     // On the detail page, scrape .detail-value into a column (scope no longer applies)
-    await addInBlock('Get value');
+    await addInBlock('Grab one value');
     await R(() => {
-      document.querySelectorAll('#modal-body select')[0].value = 'column';
-      document.querySelectorAll('#modal-body select')[0].dispatchEvent(new Event('change', { bubbles: true }));
-      document.querySelector('#modal-body input').value = 'detail';
-      document.querySelector('#modal-body input').dispatchEvent(new Event('input', { bubbles: true }));
-      document.querySelectorAll('#modal-body select')[1].value = 'text';
-      document.querySelectorAll('#modal-body select')[1].dispatchEvent(new Event('change', { bubbles: true }));
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      document.querySelector('#modal-body .target-select').value = 'column';
+      document.querySelector('#modal-body .target-select').dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector('#modal-body .name-input').value = 'detail';
+      document.querySelector('#modal-body .name-input').dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#modal-body .src-select').value = 'text';
+      document.querySelector('#modal-body .src-select').dispatchEvent(new Event('change', { bubbles: true }));
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = '.detail-value'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
@@ -743,33 +744,33 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       await sleep(220);
     }
     // For each  li.item
-    await R(() => document.querySelector('#palette-logic [data-add="forEach"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="forEach"]').click());
     await sleep(150);
     await R(() => {
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = 'li.item'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
 
     // price = THIS card's .price — selected with the PICKER (the regression:
     // before the fix this returned an ABSOLUTE selector and matched nothing).
-    await addInto('For each', 'Get value');
+    await addInto('For each', 'Grab one value');
     const banner = await R(() => {
       const b = document.querySelector('#modal-body .scope-banner');
       return b ? b.textContent : null;
     });
     check('editor tells you it is inside the For each', !!banner && /For each li\.item/.test(banner), banner);
     await R(() => {
-      document.querySelector('#modal-body input').value = 'price';
-      document.querySelector('#modal-body input').dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#modal-body .name-input').value = 'price';
+      document.querySelector('#modal-body .name-input').dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.querySelector('#modal-body .mini-pick').click());
     await sleep(250);
     await simulateGuestClick('#list li.item .price');
     await sleep(450);
     const pickedInLoop = await R(() => ({
-      selector: document.querySelector('#modal-body input[placeholder="CSS selector"]').value,
-      source: document.querySelectorAll('#modal-body select')[1].value,
+      selector: document.querySelector('#modal-body .sel-input').value,
+      source: document.querySelector('#modal-body .src-select').value,
       absTicked: [...document.querySelectorAll('#modal-body .check-row')]
         .find((r) => /somewhere else/.test(r.textContent)).querySelector('input').checked
     }));
@@ -782,15 +783,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.getElementById('modal-save').click());
 
     // was = THIS card's "was" price — a WORKING value (used for the rule, not in the CSV)
-    await addInto('For each', 'Get value');
+    await addInto('For each', 'Grab one value');
     await R(() => {
-      document.querySelector('#modal-body input').value = 'was';
-      document.querySelector('#modal-body input').dispatchEvent(new Event('input', { bubbles: true }));
-      document.querySelectorAll('#modal-body select')[0].value = 'var'; // working value
-      document.querySelectorAll('#modal-body select')[0].dispatchEvent(new Event('change', { bubbles: true }));
-      document.querySelectorAll('#modal-body select')[1].value = 'text';
-      document.querySelectorAll('#modal-body select')[1].dispatchEvent(new Event('change', { bubbles: true }));
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      document.querySelector('#modal-body .name-input').value = 'was';
+      document.querySelector('#modal-body .name-input').dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#modal-body .target-select').value = 'var'; // working value
+      document.querySelector('#modal-body .target-select').dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector('#modal-body .src-select').value = 'text';
+      document.querySelector('#modal-body .src-select').dispatchEvent(new Event('change', { bubbles: true }));
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = '.was'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await addCleanup('number', null, null);
@@ -799,23 +800,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // If NOT discounted (price ≥ was) → Skip item. No row for it, next card.
     await addInto('For each', 'If');
     await R(() => {
-      const ins = document.querySelectorAll('.cond-rule input'); // [left, right]
-      ins[0].value = 'price'; ins[0].dispatchEvent(new Event('input', { bubbles: true }));
-      const op = document.querySelector('.cond-rule select');
-      op.value = 'ge'; op.dispatchEvent(new Event('change', { bubbles: true }));
-      ins[1].value = 'was'; ins[1].dispatchEvent(new Event('input', { bubbles: true }));
+      const sels = document.querySelectorAll('.cond-rule select'); // [left, operator]
+      sels[0].value = 'price'; sels[0].dispatchEvent(new Event('change', { bubbles: true }));
+      sels[1].value = 'ge'; sels[1].dispatchEvent(new Event('change', { bubbles: true }));
+      const right = document.querySelector('.cond-rule input');
+      right.value = 'was'; right.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
     await addInto('Then', 'Skip item');
 
     // Survivors: also take the name. The row commits itself at the end of the pass.
-    await addInto('For each', 'Get value');
+    await addInto('For each', 'Grab one value');
     await R(() => {
-      document.querySelector('#modal-body input').value = 'name';
-      document.querySelector('#modal-body input').dispatchEvent(new Event('input', { bubbles: true }));
-      document.querySelectorAll('#modal-body select')[1].value = 'text';
-      document.querySelectorAll('#modal-body select')[1].dispatchEvent(new Event('change', { bubbles: true }));
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      document.querySelector('#modal-body .name-input').value = 'name';
+      document.querySelector('#modal-body .name-input').dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#modal-body .src-select').value = 'text';
+      document.querySelector('#modal-body .src-select').dispatchEvent(new Event('change', { bubbles: true }));
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = '.name'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
@@ -846,13 +847,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     // ---- picking OUTSIDE the item auto-ticks the escape hatch ----------
     console.log('\n[15] picking an element outside the item flags it as page-wide');
-    await addInto('For each', 'Get value');
+    await addInto('For each', 'Grab one value');
     await R(() => document.querySelector('#modal-body .mini-pick').click());
     await sleep(250);
     await simulateGuestClick('#q'); // the search box — NOT inside a card
     await sleep(450);
     const outside = await R(() => ({
-      selector: document.querySelector('#modal-body input[placeholder="CSS selector"]').value,
+      selector: document.querySelector('#modal-body .sel-input').value,
       absTicked: [...document.querySelectorAll('#modal-body .check-row')]
         .find((r) => /somewhere else/.test(r.textContent)).querySelector('input').checked
     }));
@@ -868,16 +869,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     // The fixture's .messy reads: "Price: £1,024.50 (inc VAT) · SKU-8871 · Posted on 14 July 2026"
     // Column 1: price   = Text between "£" and "(" → Number   → 1024.5
-    await R(() => document.querySelector('#palette [data-add="get"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
     await sleep(150);
     await R(() => {
-      document.querySelectorAll('#modal-body select')[0].value = 'column';
-      document.querySelectorAll('#modal-body select')[0].dispatchEvent(new Event('change', { bubbles: true }));
-      document.querySelector('#modal-body input').value = 'price';
-      document.querySelector('#modal-body input').dispatchEvent(new Event('input', { bubbles: true }));
-      document.querySelectorAll('#modal-body select')[1].value = 'text';
-      document.querySelectorAll('#modal-body select')[1].dispatchEvent(new Event('change', { bubbles: true }));
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      document.querySelector('#modal-body .target-select').value = 'column';
+      document.querySelector('#modal-body .target-select').dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector('#modal-body .name-input').value = 'price';
+      document.querySelector('#modal-body .name-input').dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#modal-body .src-select').value = 'text';
+      document.querySelector('#modal-body .src-select').dispatchEvent(new Event('change', { bubbles: true }));
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = '#messy'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     // add two clean-ups: Text between (£, () then Number
@@ -897,32 +898,32 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.getElementById('modal-save').click());
 
     // Column 2: sku = Digits only  → "8871"
-    await R(() => document.querySelector('#palette [data-add="get"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
     await sleep(150);
     await R(() => {
-      document.querySelectorAll('#modal-body select')[0].value = 'column';
-      document.querySelectorAll('#modal-body select')[0].dispatchEvent(new Event('change', { bubbles: true }));
-      document.querySelector('#modal-body input').value = 'sku';
-      document.querySelector('#modal-body input').dispatchEvent(new Event('input', { bubbles: true }));
-      document.querySelectorAll('#modal-body select')[1].value = 'text';
-      document.querySelectorAll('#modal-body select')[1].dispatchEvent(new Event('change', { bubbles: true }));
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      document.querySelector('#modal-body .target-select').value = 'column';
+      document.querySelector('#modal-body .target-select').dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector('#modal-body .name-input').value = 'sku';
+      document.querySelector('#modal-body .name-input').dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#modal-body .src-select').value = 'text';
+      document.querySelector('#modal-body .src-select').dispatchEvent(new Event('change', { bubbles: true }));
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = '#sku'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await addCleanup('digits', null, null);
     await R(() => document.getElementById('modal-save').click());
 
     // Column 3: posted = Text after "Posted on" → Date (day first) → "2026-07-14"
-    await R(() => document.querySelector('#palette [data-add="get"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
     await sleep(150);
     await R(() => {
-      document.querySelectorAll('#modal-body select')[0].value = 'column';
-      document.querySelectorAll('#modal-body select')[0].dispatchEvent(new Event('change', { bubbles: true }));
-      document.querySelector('#modal-body input').value = 'posted';
-      document.querySelector('#modal-body input').dispatchEvent(new Event('input', { bubbles: true }));
-      document.querySelectorAll('#modal-body select')[1].value = 'text';
-      document.querySelectorAll('#modal-body select')[1].dispatchEvent(new Event('change', { bubbles: true }));
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      document.querySelector('#modal-body .target-select').value = 'column';
+      document.querySelector('#modal-body .target-select').dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector('#modal-body .name-input').value = 'posted';
+      document.querySelector('#modal-body .name-input').dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#modal-body .src-select').value = 'text';
+      document.querySelector('#modal-body .src-select').dispatchEvent(new Event('change', { bubbles: true }));
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = '#posted'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await addCleanup('after', 'Posted on', null);
@@ -946,10 +947,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     console.log('\n[17] per-column clean-ups in Scrape list');
     await clearSteps();
     await R(() => document.getElementById('clear-results').click());
-    await R(() => document.querySelector('#palette [data-add="scrapeList"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="scrapeList"]').click());
     await sleep(150);
     await R(() => {
-      const rs = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const rs = document.querySelector('#modal-body .sel-input');
       rs.value = 'li.item'; rs.dispatchEvent(new Event('input', { bubbles: true }));
       const r0 = document.querySelectorAll('.field-row')[0];
       const ins = r0.querySelectorAll('input');
@@ -978,24 +979,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.getElementById('clear-results').click());
     await loadFixture();
     // For each item: if price >= 200 (never true — they are 10/20/30) → collect
-    await R(() => document.querySelector('#palette-logic [data-add="forEach"]').click());
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="forEach"]').click());
     await sleep(150);
     await R(() => {
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = 'li.item'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
 
     // priceVar as a WORKING value, so nothing lands in the row before the If
-    await addInto('For each', 'Get value');
+    await addInto('For each', 'Grab one value');
     await R(() => {
-      document.querySelector('#modal-body input').value = 'priceVar';
-      document.querySelector('#modal-body input').dispatchEvent(new Event('input', { bubbles: true }));
-      document.querySelectorAll('#modal-body select')[0].value = 'var';
-      document.querySelectorAll('#modal-body select')[0].dispatchEvent(new Event('change', { bubbles: true }));
-      document.querySelectorAll('#modal-body select')[1].value = 'text';
-      document.querySelectorAll('#modal-body select')[1].dispatchEvent(new Event('change', { bubbles: true }));
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      document.querySelector('#modal-body .name-input').value = 'priceVar';
+      document.querySelector('#modal-body .name-input').dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#modal-body .target-select').value = 'var';
+      document.querySelector('#modal-body .target-select').dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector('#modal-body .src-select').value = 'text';
+      document.querySelector('#modal-body .src-select').dispatchEvent(new Event('change', { bubbles: true }));
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = '.price'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await addCleanup('number', null, null);
@@ -1003,18 +1004,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     await addInto('For each', 'If');
     await R(() => {
-      const ins = document.querySelectorAll('.cond-rule input');
-      ins[0].value = 'priceVar'; ins[0].dispatchEvent(new Event('input', { bubbles: true }));
-      const op = document.querySelector('.cond-rule select');
-      op.value = 'ge'; op.dispatchEvent(new Event('change', { bubbles: true }));
-      ins[1].value = '200'; ins[1].dispatchEvent(new Event('input', { bubbles: true }));
+      const sels = document.querySelectorAll('.cond-rule select'); // [left, operator]
+      sels[0].value = 'priceVar'; sels[0].dispatchEvent(new Event('change', { bubbles: true }));
+      sels[1].value = 'ge'; sels[1].dispatchEvent(new Event('change', { bubbles: true }));
+      const right = document.querySelector('.cond-rule input');
+      right.value = '200'; right.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
-    await addInto('Then', 'Get value'); // never runs — nothing is ≥ 200
+    await addInto('Then', 'Grab one value'); // never runs — nothing is ≥ 200
     await R(() => {
-      document.querySelector('#modal-body input').value = 'name';
-      document.querySelector('#modal-body input').dispatchEvent(new Event('input', { bubbles: true }));
-      const sel = document.querySelector('#modal-body input[placeholder="CSS selector"]');
+      document.querySelector('#modal-body .name-input').value = 'name';
+      document.querySelector('#modal-body .name-input').dispatchEvent(new Event('input', { bubbles: true }));
+      const sel = document.querySelector('#modal-body .sel-input');
       sel.value = '.name'; sel.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await R(() => document.getElementById('modal-save').click());
@@ -1029,6 +1030,117 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('the If logs its decision with the real values', /priceVar \(10\) ≥ 200\) → no/.test(why.log), null);
     check('0 rows is explained ("If was false every time")',
       why.rows === 0 && /false every time \(3×\)/.test(why.log), `${why.rows} rows`);
+
+    // ---- the guidance a first-timer actually needs ---------------------
+    console.log('\n[19] a beginner is told what to do, and shown what they picked');
+    await clearSteps();
+    await loadFixture();
+
+    // The empty step list is a "Start here" card, not a blank void.
+    const start = await R(() => {
+      const c = document.getElementById('steps-empty');
+      return {
+        visible: !c.classList.contains('hidden'),
+        text: c.textContent.replace(/\s+/g, ' ').trim(),
+        choices: [...c.querySelectorAll('.start-btn')].map((b) => b.dataset.add)
+      };
+    });
+    check('the empty step list tells you where to start', start.visible && /Start here/.test(start.text), null);
+    check('…and offers the 3 real choices', JSON.stringify(start.choices) === JSON.stringify(['scrapeList', 'get', 'forEach']), JSON.stringify(start.choices));
+
+    // Clicking a start choice adds that step (no hunting in the palette).
+    await R(() => document.querySelector('.start-btn[data-add="scrapeList"]').click());
+    await sleep(200);
+    const openedList = await R(() => document.getElementById('modal-title').textContent);
+    check('“A list of things” opens the Grab-a-list editor', /Grab a list/.test(openedList), openedList);
+
+    // Pick a row → the field CONFIRMS what it found, in plain words.
+    await R(() => document.querySelector('#modal-body .mini-pick').click());
+    await sleep(250);
+    await guestClickAt('#list li.item', 0.5, 0.12);
+    await sleep(700);
+    const rowStatus = await R(() => document.querySelector('#modal-body .sel-status').textContent);
+    check('picking a row says how many it matched, with a sample',
+      /3 rows on this page/.test(rowStatus) && /Widget A/.test(rowStatus), rowStatus);
+
+    // The editor starts with ONE EMPTY column — not a junk "text" column that
+    // silently dumps the whole row into the CSV. Pick the name into it.
+    const cols0 = await R(() => [...document.querySelectorAll('.field-row')].map((r) => r.querySelectorAll('input')[0].value));
+    check('no junk default column (you fill the first one in)',
+      cols0.length === 1 && cols0[0] === '', JSON.stringify(cols0));
+
+    await R(() => document.querySelector('.field-row .mini-pick').click());
+    await sleep(250);
+    await simulateGuestClick('#list li.item .name');
+    await sleep(500);
+    const colName = await R(() => document.querySelector('.field-row input').value);
+    check('a column pick auto-names itself too', colName === 'name', colName);
+
+    await R(() => [...document.querySelectorAll('#modal-body button')].find((b) => /Preview the rows/.test(b.textContent)).click());
+    await sleep(700);
+    const pv = await R(() => {
+      const box = document.querySelector('#modal-body .preview-box');
+      return {
+        head: box.querySelector('.pv-head') ? box.querySelector('.pv-head').textContent : '',
+        headers: [...box.querySelectorAll('th')].map((th) => th.textContent),
+        cells: [...box.querySelectorAll('td')].map((td) => td.textContent)
+      };
+    });
+    check('“Preview the rows” shows the real rows BEFORE running',
+      /3 rows/.test(pv.head) && pv.cells.join(',') === 'Widget A,Widget B,Widget C',
+      JSON.stringify(pv));
+    await R(() => document.getElementById('modal-cancel').click());
+
+    // Grab one value: picking auto-suggests the name, so there's nothing to type.
+    await clearSteps();
+    await R(() => document.querySelector('.start-btn[data-add="get"]').click());
+    await sleep(200);
+    await R(() => document.querySelector('#modal-body .mini-pick').click());
+    await sleep(250);
+    await simulateGuestClick('#list li.item .price');
+    await sleep(500);
+    await R(() => {
+      const b = [...document.querySelectorAll('.choice button')].find((x) => /Any matching/.test(x.textContent));
+      if (b) b.click();
+    });
+    await sleep(400);
+    const auto = await R(() => ({
+      name: document.querySelector('#modal-body .name-input').value,
+      status: document.querySelector('#modal-body .sel-status').textContent
+    }));
+    check('picking auto-names the column from what you clicked', auto.name === 'price', auto.name);
+    check('…and confirms what it found', /3 matches on this page/.test(auto.status) && /\$10\.00/.test(auto.status), auto.status);
+    await R(() => document.getElementById('modal-save').click());
+
+    // An If can't point at a value that doesn't exist — you PICK the value from
+    // a dropdown of what you've actually grabbed. (A typo'd name is silently
+    // false forever, which is the worst failure mode in the app.)
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="if"]').click());
+    await sleep(200);
+    const cond = await R(() => {
+      const left = document.querySelector('.cond-rule select');
+      return {
+        isDropdown: left.tagName === 'SELECT',
+        options: [...left.options].map((o) => o.value),
+        matchHidden: document.querySelector('#modal-body .field').style.display === 'none'
+      };
+    });
+    check('the If rule picks its value from a dropdown (no typing a name)', cond.isDropdown);
+    check('…listing the values you actually grabbed', cond.options.includes('price'), JSON.stringify(cond.options));
+    check('ALL/ANY is hidden until there are 2+ rules', cond.matchHidden);
+    await R(() => document.getElementById('modal-cancel').click());
+
+    // With nothing grabbed yet, the If tells you to go grab something first.
+    await clearSteps();
+    await R(() => document.querySelector('#sidebar .step-palette [data-add="if"]').click());
+    await sleep(200);
+    const noVals = await R(() => {
+      const w = document.querySelector('#modal-body .warn-box');
+      return w ? w.textContent : null;
+    });
+    check('an If with nothing to test says so, and what to do',
+      !!noVals && /Grab one value/.test(noVals), noVals);
+    await R(() => document.getElementById('modal-cancel').click());
   } catch (e) {
     FAIL++;
     console.log('  ✗ EXCEPTION: ' + e.message);

@@ -527,8 +527,8 @@ const STEP_META = {
   waitFor: { icon: '👁️', label: 'Wait for' },
   scroll: { icon: '↕️', label: 'Scroll' },
   loadAll: { icon: '⤓', label: 'Load all' },
-  get: { icon: '📥', label: 'Get value' },
-  scrapeList: { icon: '📋', label: 'Scrape list' },
+  get: { icon: '📥', label: 'Grab one value' },
+  scrapeList: { icon: '📋', label: 'Grab a list' },
   goto: { icon: '🌐', label: 'Go to URL' },
   back: { icon: '⬅️', label: 'Go back' },
   if: { icon: '❓', label: 'If' },
@@ -572,16 +572,18 @@ function stepDetail(s) {
     case 'loadAll':
       return 'auto-scroll to load everything' + (s.moreSelector ? ' + ' + s.moreSelector : '');
     case 'get': {
-      const tgt = s.target === 'column' ? 'column' : 'value';
-      const rhs =
-        s.source === 'expr' ? s.expr || '…'
-        : s.source === 'url' ? 'page URL'
-        : `${s.source}(${s.selector || '·'})`;
-      return `${tgt} ${s.name || '(unnamed)'} = ${rhs}${s.source === 'expr' ? '' : tfSummary(s)}`;
+      const where = SOURCE_PHRASE[s.source] || s.source;
+      const from =
+        s.source === 'expr' ? (s.expr || '…')
+        : s.source === 'url' ? 'the page URL'
+        : `${where} ${s.selector || '(pick one)'}`;
+      const kept = s.target === 'column' ? '' : ' · not in the CSV';
+      return `${s.name || '(name it)'} ← ${from}${s.source === 'expr' ? '' : tfSummary(s)}${kept}`;
     }
     case 'scrapeList': {
       const cleaned = s.fields.filter((f) => stepTransforms(f).length).length;
-      return `${s.rowSelector} · ${s.fields.length} field(s)${cleaned ? ` · 🧹${cleaned}` : ''}`;
+      const cols = s.fields.map((f) => f.name).filter(Boolean).join(', ');
+      return `each ${s.rowSelector || '(pick a row)'} → ${cols || 'no columns yet'}${cleaned ? ' 🧹' : ''}`;
     }
     case 'skip':
       return 'no row for this item — go to the next';
@@ -592,19 +594,32 @@ function stepDetail(s) {
     case 'back':
       return 'browser back';
     case 'forEach':
-      return `for each ${s.selector || '…'}${s.indexVar ? ' → ' + s.indexVar : ''}`;
+      return `every ${s.selector || '(pick an item)'} — one row each`;
     case 'if':
-      return `if ( ${condSummary(s.condition)} )`;
+      return condSummary(s.condition);
     case 'while':
-      return `while ( ${condSummary(s.condition)} )`;
+      return `while ${condSummary(s.condition)}`;
     case 'repeat':
-      return `repeat ${s.count || '0'}${s.indexVar ? ' → ' + s.indexVar : ''}`;
+      return `${s.count || '0'} times${s.indexVar ? ` (counter: ${s.indexVar})` : ''}`;
     case 'break':
       return 'exit loop';
     default:
       return '';
   }
 }
+
+// How each Get-value source reads in the step list.
+const SOURCE_PHRASE = {
+  text: 'the text of',
+  href: 'the link in',
+  src: 'the image in',
+  value: 'the field value of',
+  attr: 'an attribute of',
+  html: 'the HTML of',
+  checked: 'whether ticked:',
+  count: 'how many',
+  exists: 'whether there is a'
+};
 
 // " → Text between(£, () → Number" for the step list.
 function tfSummary(o) {
@@ -897,10 +912,14 @@ function wireDrag(li, list) {
 
 // --- Floating "add step" menu (used inside blocks) -------------------------
 
-const PALETTE_ORDER = [
-  'click', 'clickText', 'select', 'check', 'type', 'hover', 'key',
-  'wait', 'waitFor', 'scroll', 'loadAll', 'get', 'scrapeList',
-  'goto', 'back', 'if', 'forEach', 'while', 'repeat', 'skip', 'break'
+// Grouped exactly like the sidebar palette — the data steps first, because
+// that's what people are actually here for.
+const PALETTE_GROUPS = [
+  { title: 'Get the data', types: ['scrapeList', 'get'] },
+  { title: 'Do something on the page', types: [
+    'click', 'type', 'clickText', 'select', 'check', 'hover', 'key',
+    'scroll', 'waitFor', 'wait', 'loadAll', 'goto', 'back'] },
+  { title: 'Repeat & decide', types: ['forEach', 'if', 'skip', 'while', 'repeat', 'break'] }
 ];
 let openMenuEl = null;
 function closeTypeMenu() {
@@ -916,14 +935,20 @@ function menuOutside(e) {
 function openTypeMenu(anchor, onPick) {
   closeTypeMenu();
   const menu = el('div', { className: 'type-menu' });
-  for (const t of PALETTE_ORDER) {
-    const m = STEP_META[t];
-    const b = el('button', { textContent: `${m.icon} ${m.label}` });
-    b.addEventListener('click', () => {
-      closeTypeMenu();
-      onPick(t);
-    });
-    menu.append(b);
+  for (const g of PALETTE_GROUPS) {
+    menu.append(el('div', { className: 'tm-title', textContent: g.title }));
+    const grid = el('div', { className: 'tm-grid' });
+    for (const t of g.types) {
+      const m = STEP_META[t];
+      const b = el('button', { className: g.title === 'Get the data' ? 'key-step' : '',
+        textContent: `${m.icon} ${m.label}` });
+      b.addEventListener('click', () => {
+        closeTypeMenu();
+        onPick(t);
+      });
+      grid.append(b);
+    }
+    menu.append(grid);
   }
   document.body.append(menu);
   const r = anchor.getBoundingClientRect();
@@ -973,7 +998,9 @@ const BLANK = {
   scrapeList: () => ({
     type: 'scrapeList',
     rowSelector: '',
-    fields: [{ name: 'text', selector: '', extract: 'text', attr: '' }]
+    // ONE empty column to fill in — not a junk "text" column that silently
+    // grabs the whole row and shows up in the CSV.
+    fields: [{ name: '', selector: '', extract: 'text', attr: '' }]
   }),
   skip: () => ({ type: 'skip' }),
   goto: () => ({ type: 'goto', url: '' }),
@@ -991,7 +1018,10 @@ function onPaletteClick(e) {
   addStepOfType(btn.dataset.add, steps); // top-level palette adds to the root
 }
 $('#palette').addEventListener('click', onPaletteClick);
+$('#palette-actions').addEventListener('click', onPaletteClick);
 $('#palette-logic').addEventListener('click', onPaletteClick);
+// The "Start here" card is the same palette, spelled out for a first-timer.
+$('#steps-empty').addEventListener('click', onPaletteClick);
 
 // ===========================================================================
 // Step editor modal
@@ -1114,28 +1144,113 @@ async function loadSelectOptions(selector, container, step) {
   container.append(field('Choose from live options', live));
 }
 
-// selector input paired with a live "Pick" button.
-// opts: { mode, relativeTo, onFilled(selector, data) } — onFilled runs after a pick.
+// A selector input where **Pick is the main event**: a big accent button, and a
+// live status line under it that tells you, in plain words, what you just
+// selected ("✓ 3 on this page — e.g. “$10.00”"). Without that confirmation the
+// user is staring at ".price" with no idea whether it's right until they Run.
+//
+// opts: { mode, relativeTo, onFilled(selector, data), countLabel }
 //
 // If the step being edited sits inside a "For each", picks default to being
 // RELATIVE to that container (unless the step is flagged as "outside the
 // current item"), so ".price" means THIS item's price.
 function selectorInput(value, opts = {}) {
-  const wrap = el('span', { className: 'input-with-pick' });
-  const input = el('input', { value: value || '', placeholder: 'CSS selector' });
-  const pick = el('button', { className: 'mini-pick', textContent: 'Pick' });
+  const wrap = el('div', { className: 'sel-field' });
+  const row = el('span', { className: 'input-with-pick' });
+  const input = el('input', {
+    className: 'sel-input',
+    value: value || '',
+    placeholder: 'press Pick →  (or type a CSS selector)'
+  });
+  const pick = el('button', { className: 'mini-pick pick-btn', textContent: '⊕ Pick' });
+  const status = el('div', { className: 'sel-status' });
+
+  const relTo = () =>
+    opts.relativeTo !== undefined ? opts.relativeTo : editing && editing.abs ? '' : editingScope;
+
+  const check = () => updateSelStatus(status, input.value, relTo(), opts);
   pick.addEventListener('click', () =>
     startPick(opts.mode || 'element', {
       type: 'input',
       input,
-      // Resolved at click time: `editing.abs` can be toggled after this input is built.
-      relativeTo:
-        opts.relativeTo !== undefined ? opts.relativeTo : editing && editing.abs ? '' : editingScope,
-      onFilled: opts.onFilled
+      relativeTo: relTo(), // resolved at click time: `editing.abs` may have been toggled
+      onFilled: (sel, data) => {
+        if (typeof opts.onFilled === 'function') opts.onFilled(sel, data);
+        check();
+      }
     })
   );
-  wrap.append(input, pick);
-  return { wrap, input };
+
+  let t = null;
+  input.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(check, 350);
+  });
+  row.append(input, pick);
+  wrap.append(row, status);
+  setTimeout(check, 0); // confirm what's already there when the editor opens
+  return { wrap, input, status, check };
+}
+
+// Guess a column name from what the user picked, so the common case needs no
+// typing at all: ".product-item__price" → "price", "a.title-link" → "title",
+// "#search-total" → "searchTotal".
+function suggestName(selector) {
+  const sel = (selector || '').trim();
+  if (!sel) return '';
+  // last id/class token in the selector, e.g. ".card > .price" → "price"
+  const tokens = sel.match(/[.#][A-Za-z_][\w-]*/g);
+  if (!tokens || !tokens.length) return '';
+  let raw = tokens[tokens.length - 1].slice(1);
+  // strip BEM-ish block prefixes: "product-item__price" → "price"
+  if (raw.includes('__')) raw = raw.split('__').pop();
+  // drop generic suffixes people don't want in a heading
+  raw = raw.replace(/[-_](link|text|label|wrap|wrapper|container|inner)$/i, '');
+  const parts = raw.split(/[-_]+/).filter(Boolean);
+  if (!parts.length) return '';
+  const camel = parts[0].toLowerCase() +
+    parts.slice(1).map((p) => p[0].toUpperCase() + p.slice(1).toLowerCase()).join('');
+  return /^[a-z]/i.test(camel) ? camel : '';
+}
+
+// Ask the live page how many elements a selector matches, and show a sample.
+async function updateSelStatus(status, rawSel, relativeTo, opts = {}) {
+  const sel = (rawSel || '').trim();
+  const scope = relativeTo || '';
+  if (!sel && !scope) {
+    status.className = 'sel-status';
+    status.textContent = '';
+    return;
+  }
+  const full = scope ? (sel ? scope + ' ' + sel : scope) : sel;
+  let info;
+  try {
+    info = await pageEval(`(() => {
+      let els; try { els = document.querySelectorAll(${JSON.stringify(full)}); } catch (e) { return { bad: true }; }
+      const first = els[0];
+      const txt = first ? (first.innerText || first.textContent || '').replace(/\\s+/g, ' ').trim() : '';
+      return { n: els.length, sample: txt.slice(0, 60) };
+    })()`);
+  } catch (_) {
+    info = null;
+  }
+  if (!info || info.bad) {
+    status.className = 'sel-status bad';
+    status.textContent = '⚠ That isn’t a valid selector.';
+    return;
+  }
+  if (!info.n) {
+    status.className = 'sel-status bad';
+    status.textContent = scope
+      ? '⚠ Nothing inside the current item matches — is it somewhere else on the page?'
+      : '⚠ Nothing on this page matches. Load the right page, then press Pick.';
+    return;
+  }
+  const noun = opts.countLabel || 'match'; // 'match' | 'item' | 'row'
+  const plural = noun === 'match' ? 'matches' : noun + 's';
+  status.className = 'sel-status ok';
+  status.textContent = `✓ ${info.n} ${info.n === 1 ? noun : plural} on this page` +
+    (info.sample ? ` — e.g. “${info.sample}”` : '');
 }
 
 function select(value, options) {
@@ -1158,6 +1273,70 @@ const EXTRACT_OPTS = [
   { value: 'checked', label: 'Checked (true/false)' },
   { value: 'expr', label: 'Value / expression' }
 ];
+
+// Run the Scrape-list against the live page and show the first rows exactly as
+// they'd land in the CSV — clean-ups and all.
+async function previewList(s, out) {
+  out.classList.remove('hidden');
+  out.textContent = 'reading the page…';
+  const rowSel = editingScope && !s.abs
+    ? (s.rowSelector ? editingScope + ' ' + s.rowSelector : editingScope)
+    : s.rowSelector;
+  if (!rowSel) {
+    out.className = 'preview-box bad';
+    out.textContent = 'Pick a row first (①).';
+    return;
+  }
+  const cols = s.fields.filter((f) => (f.name || '').trim() || f.selector);
+  if (!cols.length) {
+    out.className = 'preview-box bad';
+    out.textContent = 'Add a column (②) — then you’ll see the rows here.';
+    return;
+  }
+  let raw;
+  try {
+    raw = await pageEval(PA.listExpr(rowSel, cols.filter((f) => f.extract !== 'expr')));
+  } catch (_) {
+    raw = null;
+  }
+  if (!raw || !raw.length) {
+    out.className = 'preview-box bad';
+    out.textContent = '⚠ No rows found. Check the row selector (①) — and make sure the page is loaded.';
+    return;
+  }
+  const shown = raw.slice(0, 5).map((r) => {
+    const o = {};
+    for (const f of cols) {
+      o[f.name || '(unnamed)'] = f.extract === 'expr' ? '(computed at run time)' : cleanValue(f, r[f.name]);
+    }
+    return o;
+  });
+  out.className = 'preview-box';
+  out.innerHTML = '';
+  out.append(el('div', { className: 'pv-head',
+    textContent: `${raw.length} row${raw.length === 1 ? '' : 's'} — first ${shown.length}:` }));
+  const tbl = el('table', { className: 'pv-table' });
+  const hr = el('tr');
+  for (const f of cols) hr.append(el('th', { textContent: f.name || '(unnamed)' }));
+  tbl.append(hr);
+  for (const r of shown) {
+    const tr = el('tr');
+    for (const f of cols) {
+      const v = r[f.name || '(unnamed)'];
+      tr.append(el('td', { textContent: v === '' || v == null ? '—' : String(v) }));
+    }
+    tbl.append(tr);
+  }
+  out.append(tbl);
+  const empties = cols.filter((f) => shown.every((r) => {
+    const v = r[f.name || '(unnamed)'];
+    return v === '' || v == null;
+  }));
+  if (empties.length) {
+    out.append(el('div', { className: 'pv-warn', textContent:
+      `⚠ ${empties.map((f) => f.name || '(unnamed)').join(', ')} came back empty — re-Pick that value inside a row.` }));
+  }
+}
 
 // Step types whose selectors are affected by an enclosing "For each".
 const SELECTOR_STEPS = new Set([
@@ -1366,62 +1545,81 @@ function buildEditorBody(s, root) {
   }
 
   if (s.type === 'get') {
-    const name = el('input', { value: s.name, placeholder: 'e.g. price, title' });
-    name.addEventListener('input', () => (s.name = name.value));
-    root.append(field('Name', name,
-      'Use this name in an If/While rule (“price is less than 200”) and in {{price}}.'));
-
-    const tgt = select(s.target || 'column', [
-      { value: 'column', label: 'A column — goes in the results table & CSV' },
-      { value: 'var', label: 'A working value — for If/While only, NOT in the CSV' }
-    ]);
-    tgt.addEventListener('change', () => (s.target = tgt.value));
-    root.append(field('Keep it as', tgt,
-      'Either way you read it by name in your rules. This only decides whether it ends up in the CSV.'));
-
+    // ORDER MATTERS: you point at the thing FIRST, then name it. Asking for a
+    // name before the user has pointed at anything is backwards — and the name
+    // can usually be guessed from what they picked.
     const src = select(s.source, [
-      { value: 'text', label: 'The element’s text' },
-      { value: 'href', label: 'A link (href)' },
-      { value: 'src', label: 'An image (src)' },
-      { value: 'value', label: 'A form field’s value' },
-      { value: 'attr', label: 'An attribute (give its name below)' },
-      { value: 'html', label: 'Inner HTML' },
-      { value: 'checked', label: 'Is it checked? (yes/no)' },
-      { value: 'count', label: 'How many elements match (a number)' },
-      { value: 'exists', label: 'Does it exist? (yes/no)' },
-      { value: 'url', label: 'The current page URL' },
-      { value: 'expr', label: 'A calculation / another value (expression)' }
+      { value: 'text', label: 'Its text' },
+      { value: 'href', label: 'Its link (href)' },
+      { value: 'src', label: 'Its image (src)' },
+      { value: 'value', label: 'What’s typed in it (a form field)' },
+      { value: 'attr', label: 'One of its attributes…' },
+      { value: 'html', label: 'Its inner HTML' },
+      { value: 'checked', label: 'Whether it’s ticked (yes/no)' },
+      { value: 'count', label: 'How MANY of them there are (a number)' },
+      { value: 'exists', label: 'Whether it exists at all (yes/no)' },
+      { value: 'url', label: '— the page’s address (no element needed)' },
+      { value: 'expr', label: '— a calculation from values you already have' }
     ]);
-    root.append(field('Get', src));
+    src.className = 'src-select';
 
-    const expr = el('input', { value: s.expr, placeholder: 'e.g. was - price   or   "in stock"' });
-    expr.addEventListener('input', () => (s.expr = expr.value));
-    const exprField = field('Expression', expr,
-      'Maths and text on values you already have: was - price, price * 1.2, title + " (sale)".');
+    const name = el('input', { className: 'name-input', value: s.name, placeholder: 'e.g. price' });
+    name.addEventListener('input', () => (s.name = name.value));
 
-    const { wrap, input } = selectorInput(s.selector, {
+    const { wrap, input, check } = selectorInput(s.selector, {
       mode: 'element',
-      onFilled: () => {
+      onFilled: (sel) => {
+        // Picking implies you want something off that element.
         if (s.source === 'expr' || s.source === 'url') {
           s.source = 'text';
           src.value = 'text';
           sync();
         }
+        // Suggest a name from what was picked, so the common case needs no typing.
+        if (!(s.name || '').trim()) {
+          const guess = suggestName(sel);
+          if (guess) {
+            s.name = guess;
+            name.value = guess;
+          }
+        }
       }
     });
     input.addEventListener('input', () => (s.selector = input.value));
-    const selField = field('From which element', wrap, 'Press Pick, then click it on the page.');
+    const selField = field('① Which element?', wrap);
+
+    root.append(selField);
+    root.append(field('② What do you want from it?', src));
 
     const attr = el('input', { value: s.attr, placeholder: 'attribute name, e.g. data-id' });
     attr.addEventListener('input', () => (s.attr = attr.value));
-    const attrField = field('Attribute name', attr);
+    const attrField = field('Which attribute?', attr);
+    root.append(attrField);
 
+    const expr = el('input', { value: s.expr, placeholder: 'e.g. was - price' });
+    expr.addEventListener('input', () => (s.expr = expr.value));
+    const exprField = field('The calculation', expr,
+      'Maths and text on values you already have: was - price, price * 1.2, title + " (sale)".');
+    root.append(exprField);
+
+    // Clean-ups sit right where you'd look after seeing the raw value.
     const cleanWrap = el('div');
     appendTransformList(s, cleanWrap, () =>
       previewRaw(s.selector, s.source === 'expr' || s.source === 'url' ? 'text' : s.source, s.attr)
     );
+    root.append(cleanWrap);
 
-    root.append(exprField, selField, attrField, cleanWrap);
+    root.append(field('③ Call it', name,
+      'This name is the CSV column heading — and how you refer to it in a rule (“price is less than 200”).'));
+
+    const tgt = select(s.target || 'column', [
+      { value: 'column', label: 'Yes — put it in the results table & CSV' },
+      { value: 'var', label: 'No — I only need it for a rule (If / While)' }
+    ]);
+    tgt.className = 'target-select';
+    tgt.addEventListener('change', () => (s.target = tgt.value));
+    root.append(field('④ Keep it in the results?', tgt));
+
     const sync = () => {
       const needsSelector = !(s.source === 'expr' || s.source === 'url');
       const readsText = !['expr', 'count', 'exists', 'checked'].includes(s.source);
@@ -1429,6 +1627,7 @@ function buildEditorBody(s, root) {
       selField.style.display = needsSelector ? '' : 'none';
       attrField.style.display = s.source === 'attr' ? '' : 'none';
       cleanWrap.style.display = readsText ? '' : 'none';
+      if (needsSelector) check();
     };
     src.addEventListener('change', () => {
       s.source = src.value;
@@ -1445,29 +1644,36 @@ function buildEditorBody(s, root) {
   }
 
   if (s.type === 'scrapeList') {
-    const { wrap, input } = selectorInput(s.rowSelector, { mode: 'list' });
+    const { wrap, input, check } = selectorInput(s.rowSelector, { mode: 'list', countLabel: 'row' });
     input.addEventListener('input', () => (s.rowSelector = input.value));
     root.append(
-      field('① Row selector (the repeating item)', wrap,
-        'Pick ONE repeating item (a product card / table row). Each match = one CSV row.')
+      field('① Pick one row', wrap,
+        'Click ONE of the repeating items — a whole product card, or a table row. ' +
+        'Scrape Studio finds all the others like it. Each one becomes a CSV row.')
     );
 
-    root.append(el('label', { className: 'field-label', textContent: '② Columns (relative to each row)' }));
+    root.append(el('label', { className: 'field-label', textContent: '② What do you want from each row?' }));
     root.append(el('div', { className: 'hint', textContent:
-      'Add a column per value, then Pick the value INSIDE a row (e.g. the name, the price). ' +
-      'The name and price on the same row stay together.' }));
+      'Add a column, then Pick that value INSIDE the row you chose (the name, the price…). ' +
+      'Values on the same row always stay together.' }));
     const listWrap = el('div', { className: 'field-list' });
     root.append(listWrap);
     renderFieldRows(s, listWrap);
 
     const add = el('button', { textContent: '+ Add column' });
     add.addEventListener('click', () => {
-      s.fields.push({ name: 'field' + (s.fields.length + 1), selector: '', extract: 'text', attr: '' });
+      s.fields.push({ name: '', selector: '', extract: 'text', attr: '' });
       renderFieldRows(s, listWrap);
     });
-    root.append(el('div', { style: 'margin-top:8px' }, [add]));
-  }
 
+    // THE confidence-builder: see the actual rows before you run anything.
+    const prev = el('button', { className: 'tf-test', textContent: '👁 Preview the rows' });
+    const out = el('div', { className: 'preview-box hidden' });
+    prev.addEventListener('click', () => previewList(s, out));
+    root.append(el('div', { className: 'tf-bar' }, [add, prev]), out);
+    if (s.rowSelector) setTimeout(() => previewList(s, out), 60);
+    check();
+  }
 
   if (s.type === 'goto') {
     const url = el('input', { value: s.url, placeholder: 'https://…  (supports {{variables}})' });
@@ -1505,18 +1711,20 @@ function buildEditorBody(s, root) {
   }
 
   if (s.type === 'forEach') {
-    const { wrap, input } = selectorInput(s.selector, { mode: 'list' });
+    const { wrap, input } = selectorInput(s.selector, { mode: 'list', countLabel: 'item' });
     input.addEventListener('input', () => (s.selector = input.value));
-    root.append(field('For each element matching', wrap,
-      'Pick a repeating container (a product card / row). The block runs once per match, ' +
-      'and selectors inside it are relative to the current one — so “.price” means THIS card’s price. ' +
-      'Leave a selector blank to mean the container itself.'));
+    root.append(field('Pick one item', wrap,
+      'Click ONE of the repeating items — a product card, a table row. The steps you put inside ' +
+      'run once for EVERY one of them, and each pass makes a row.'));
+    root.append(el('div', { className: 'hint', textContent:
+      'Inside this block, Pick gives you selectors relative to the current item — so “.price” means ' +
+      'THIS card’s price. That’s what lets you compare two values in the same card and filter on it.' }));
     const iv = el('input', { value: s.indexVar, placeholder: 'e.g. i (optional)' });
     iv.addEventListener('input', () => (s.indexVar = iv.value));
-    root.append(field('Index variable', iv, 'If set, holds the current index (0-based).'));
+    root.append(field('Counter name (optional)', iv, 'Holds the item number inside the loop (starts at 0).'));
     const mi = el('input', { type: 'number', value: s.maxIter, min: 1 });
     mi.addEventListener('input', () => (s.maxIter = +mi.value));
-    root.append(field('Safety max iterations', mi));
+    root.append(field('Stop after (safety)', mi, 'A hard cap, so a huge page can’t run forever.'));
     root.append(el('div', { className: 'hint', textContent:
       'Add the per-item steps below via “+ add step”. If a step navigates to a detail page, ' +
       'selectors there are used as-is; add a “Go back” step to return and continue.' }));
@@ -1528,44 +1736,60 @@ function buildEditorBody(s, root) {
   }
 }
 
-// Visual condition builder — Match ALL/ANY + a list of rules, no operators typed.
+// Visual condition builder — pick a value, pick an operator, type what to compare
+// against. Nothing to type from memory: the left-hand side is a DROPDOWN of the
+// values you've actually grabbed, because a rule pointing at a name that doesn't
+// exist is silently false forever — the worst failure mode in the whole app.
 function buildConditionUI(cond, root) {
   const vars = Array.from(collectVarNames(steps));
 
+  if (!vars.length) {
+    root.append(el('div', { className: 'warn-box', textContent:
+      'You haven’t grabbed any values yet, so there’s nothing to test. Add a ' +
+      '“📥 Grab one value” step above this one first (e.g. price), then come back.' }));
+  }
+
+  const listWrap = el('div', { className: 'cond-list' });
   const match = select(cond.match, [
     { value: 'all', label: 'ALL of these are true (AND)' },
     { value: 'any', label: 'ANY of these are true (OR)' }
   ]);
   match.addEventListener('change', () => (cond.match = match.value));
-  root.append(field('Run when', match));
+  const matchField = field('Run when', match);
 
-  // a shared datalist of known variable names
-  const listId = 'vars-' + nextId();
-  const dl = el('datalist', { id: listId });
-  for (const v of vars) dl.append(el('option', { value: v }));
-  root.append(dl);
-
-  const listWrap = el('div', { className: 'cond-list' });
-  root.append(listWrap);
-  renderCondRules(cond, listWrap, listId);
+  const rerender = () => {
+    renderCondRules(cond, listWrap, vars, rerender);
+    // ALL/ANY only matters once there's more than one rule — hide the noise.
+    matchField.style.display = cond.rules.length > 1 ? '' : 'none';
+  };
+  root.append(matchField, listWrap);
 
   const add = el('button', { textContent: '+ Add rule' });
   add.addEventListener('click', () => {
     cond.rules.push(newRule());
-    renderCondRules(cond, listWrap, listId);
+    rerender();
   });
   root.append(el('div', { style: 'margin-top:6px' }, [add]));
+  rerender();
 }
 
-function renderCondRules(cond, wrap, listId) {
+function renderCondRules(cond, wrap, vars, rerender) {
   wrap.innerHTML = '';
   cond.rules.forEach((r, i) => {
-    const left = el('input', { value: r.left, placeholder: 'variable' });
-    left.setAttribute('list', listId); // `.list` is read-only; must use setAttribute
-    left.addEventListener('input', () => (r.left = left.value));
+    // Known values + whatever this rule already names (so a saved rule survives).
+    const opts = Array.from(new Set([...vars, ...(r.left ? [r.left] : [])]));
+    let left;
+    if (opts.length) {
+      left = select(r.left || '', [{ value: '', label: '— choose a value —' }]
+        .concat(opts.map((v) => ({ value: v, label: v }))));
+      left.addEventListener('change', () => (r.left = left.value));
+    } else {
+      left = el('input', { value: r.left, placeholder: 'grab a value first' });
+      left.addEventListener('input', () => (r.left = left.value));
+    }
 
     const op = select(r.op, COND_OPS.map((o) => ({ value: o.v, label: o.label })));
-    const right = el('input', { value: r.right, placeholder: 'value' });
+    const right = el('input', { value: r.right, placeholder: 'e.g. 200' });
     right.addEventListener('input', () => (r.right = right.value));
     const syncRight = () => (right.style.display = isBinaryOp(r.op) ? '' : 'none');
     op.addEventListener('change', () => {
@@ -1577,13 +1801,15 @@ function renderCondRules(cond, wrap, listId) {
     del.addEventListener('click', () => {
       cond.rules.splice(i, 1);
       if (!cond.rules.length) cond.rules.push(newRule());
-      renderCondRules(cond, wrap, listId);
+      rerender();
     });
 
     const row = el('div', { className: 'cond-rule' }, [left, op, right, del]);
     wrap.append(row);
     syncRight();
   });
+  wrap.append(el('div', { className: 'hint', textContent:
+    'Compare with a number (200), some text (Pro), or the name of another value you grabbed (was).' }));
 }
 
 // ---------------------------------------------------------------------------
@@ -1611,8 +1837,7 @@ function appendTransformList(o, root, getRaw) {
 
   root.append(el('label', { className: 'field-label', textContent: 'Clean up the text' }));
   root.append(el('div', { className: 'hint', textContent:
-    'Optional. Each clean-up runs on the result of the one above it — e.g. ' +
-    '“Text between £ and (” then “Number” turns “Price: £1,024.50 (inc VAT)” into 1024.5.' }));
+    'Optional — turn messy page text into the value you want. They run top to bottom.' }));
 
   const listWrap = el('div', { className: 'field-list' });
   const out = el('div', { className: 'tf-preview hidden' });
@@ -1736,7 +1961,7 @@ function renderFieldRows(s, wrap) {
   wrap.innerHTML = '';
   s.fields.forEach((f, i) => {
     const isExpr = f.extract === 'expr';
-    const name = el('input', { value: f.name, placeholder: 'column' });
+    const name = el('input', { value: f.name, placeholder: 'column name' });
     name.addEventListener('input', () => (f.name = name.value));
 
     // Middle control: a relative selector (+Pick) for element columns, or a
@@ -1747,12 +1972,25 @@ function renderFieldRows(s, wrap) {
       middle.addEventListener('input', () => (f.selector = middle.value));
     } else {
       middle = el('span', { className: 'input-with-pick' });
-      const sel = el('input', { value: f.selector, placeholder: 'relative selector (blank = row)' });
+      const sel = el('input', { className: 'sel-input', value: f.selector, placeholder: 'press Pick, then click it in a row' });
       sel.addEventListener('input', () => (f.selector = sel.value));
-      const pick = el('button', { className: 'mini-pick', textContent: 'Pick' });
+      const pick = el('button', { className: 'mini-pick pick-btn', textContent: '⊕ Pick' });
       pick.addEventListener('click', () => {
-        if (!s.rowSelector) log('Pick the row selector (①) first — columns are relative to it.', 'warn');
-        startPick('element', { type: 'input', input: sel, relativeTo: s.rowSelector });
+        if (!s.rowSelector) return log('Pick the row (①) first — columns are relative to it.', 'warn');
+        startPick('element', {
+          type: 'input',
+          input: sel,
+          relativeTo: s.rowSelector,
+          onFilled: (picked) => {
+            if (!(f.name || '').trim()) {
+              const guess = suggestName(picked);
+              if (guess) {
+                f.name = guess;
+                name.value = guess;
+              }
+            }
+          }
+        });
       });
       middle.append(sel, pick);
     }
@@ -1767,7 +2005,7 @@ function renderFieldRows(s, wrap) {
     del.addEventListener('click', () => {
       s.fields.splice(i, 1);
       openTfCols.delete(i);
-      if (!s.fields.length) s.fields.push({ name: 'text', selector: '', extract: 'text', attr: '' });
+      if (!s.fields.length) s.fields.push({ name: '', selector: '', extract: 'text', attr: '' });
       renderFieldRows(s, wrap);
     });
 

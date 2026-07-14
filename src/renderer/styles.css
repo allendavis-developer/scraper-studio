@@ -309,7 +309,7 @@ select {
   text-align: left;
 }
 
-/* floating add-step menu */
+/* floating add-step menu — grouped like the sidebar palette */
 .type-menu {
   position: fixed;
   z-index: 300;
@@ -317,18 +317,42 @@ select {
   border: 1px solid var(--line-2);
   border-radius: 4px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  padding: 4px;
+  padding: 5px;
+  width: 250px;
+  max-height: 70vh;
+  overflow: auto;
+}
+.tm-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px;
-  width: 240px;
-  max-height: 60vh;
-  overflow: auto;
+}
+.tm-title {
+  font: 700 9px/1.4 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin: 6px 0 3px;
+}
+.tm-title:first-child {
+  margin-top: 2px;
 }
 .type-menu button {
   text-align: left;
   font-size: 11px;
   padding: 5px 6px;
+}
+.type-menu .key-step,
+.step-palette .key-step {
+  grid-column: span 2;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  padding: 7px 8px;
+}
+.type-menu .key-step:hover,
+.step-palette .key-step:hover {
+  background: var(--accent-dim);
 }
 
 .palette-sub {
@@ -336,7 +360,10 @@ select {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-dim);
-  margin: 8px 0 4px;
+  margin: 9px 0 4px;
+}
+.palette-sub.first {
+  margin-top: 2px;
 }
 
 /* post-pick "which element(s)?" chooser */
@@ -379,6 +406,135 @@ select {
   font-size: 11px;
   padding: 8px;
   line-height: 1.6;
+}
+
+/* "Start here" — the first thing a new user sees, instead of a blank list */
+.start-card {
+  padding: 4px 2px 8px;
+}
+.start-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 4px 0 8px;
+}
+.start-btn {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 9px;
+  margin-bottom: 5px;
+}
+.start-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.sb-icon {
+  font-size: 15px;
+  line-height: 1.2;
+}
+.sb-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sb-text b {
+  font-size: 12px;
+  font-weight: 600;
+}
+.sb-text i {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.start-foot {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+}
+
+/* selector field: Pick is the primary action, with a live "what I found" line */
+.sel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pick-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  padding: 5px 11px;
+}
+.pick-btn:hover {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  color: #fff;
+}
+.sel-status {
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  min-height: 12px;
+  word-break: break-word;
+}
+.sel-status.ok {
+  color: var(--green);
+}
+.sel-status.bad {
+  color: var(--red);
+}
+
+/* the Scrape-list row preview — see the CSV before you run it */
+.preview-box {
+  border: 1px solid var(--line);
+  background: var(--row-alt);
+  padding: 7px 8px;
+  margin-top: 6px;
+  font-size: 11px;
+  overflow-x: auto;
+}
+.preview-box.bad {
+  border-color: var(--danger-bg);
+  color: var(--danger-text);
+}
+.pv-head {
+  font: 10px var(--mono);
+  color: var(--text-dim);
+  margin-bottom: 5px;
+}
+.pv-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.pv-table th,
+.pv-table td {
+  border: 1px solid var(--line);
+  padding: 3px 6px;
+  text-align: left;
+  font-size: 11px;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pv-table th {
+  background: var(--bg-3);
+  font: 10px var(--mono);
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.pv-warn {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--red);
 }
 
 .row {
@@ -783,6 +939,18 @@ select {
   font-size: 10px;
   color: var(--text-dim);
   line-height: 1.45;
+}
+
+/* "you need to do X first" callout */
+.warn-box {
+  border: 1px solid var(--yellow);
+  border-left-width: 3px;
+  background: var(--row-alt);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 7px 9px;
+  margin-bottom: 10px;
 }
 
 /* visual condition rules */
