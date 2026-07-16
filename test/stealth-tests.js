@@ -3,7 +3,7 @@
 //
 //   node test/stealth-tests.js
 
-const { realisticUserAgent, looksLikeBot, defaultHeaders, clientHints } = require('../src/shared/stealth.js');
+const { realisticUserAgent, looksLikeBot, defaultHeaders, clientHints, userAgentMetadata } = require('../src/shared/stealth.js');
 
 let pass = 0;
 let fail = 0;
@@ -53,6 +53,15 @@ ok('sec-ch-ua names Google Chrome', /Google Chrome/.test(ch['sec-ch-ua']), ch['s
 ok('sec-ch-ua-mobile is ?0 (desktop)', ch['sec-ch-ua-mobile'] === '?0', JSON.stringify(ch));
 ok('sec-ch-ua-platform reflects Windows for a Windows UA', ch['sec-ch-ua-platform'] === '"Windows"', JSON.stringify(ch));
 ok('a Mac UA yields a macOS platform hint', clientHints(mac)['sec-ch-ua-platform'] === '"macOS"', JSON.stringify(clientHints(mac)));
+
+// The CDP client-hint metadata (what makes the real app emit clean Sec-CH-UA in
+// Chrome's header order) must be consistent with the UA and Electron-free.
+const meta = userAgentMetadata(cleaned);
+ok('metadata brands do not include Electron', !JSON.stringify(meta.brands).match(/Electron/i), JSON.stringify(meta.brands));
+ok('metadata brands include Google Chrome', meta.brands.some((b) => b.brand === 'Google Chrome' && b.version === '130'), JSON.stringify(meta.brands));
+ok('metadata fullVersion matches the UA', /^130\./.test(meta.fullVersion), meta.fullVersion);
+ok('metadata is desktop (mobile:false) with a platform', meta.mobile === false && !!meta.platform, JSON.stringify({ mobile: meta.mobile, platform: meta.platform }));
+ok('a Mac UA yields a macOS metadata platform', userAgentMetadata(mac).platform === 'macOS', userAgentMetadata(mac).platform);
 
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

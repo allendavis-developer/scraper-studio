@@ -6,7 +6,7 @@ const { app, BrowserWindow, Menu, nativeTheme, ipcMain, dialog, session } = requ
 const path = require('path');
 const fs = require('fs');
 const { cookiePersistDetails } = require('../shared/session-cookies');
-const { realisticUserAgent, defaultHeaders, clientHints } = require('../shared/stealth');
+const { realisticUserAgent, userAgentMetadata } = require('../shared/stealth');
 
 const isDev = process.argv.includes('--dev');
 
@@ -41,37 +41,19 @@ function keepSessionCookies(ses) {
   });
 }
 
-// Make each session look like a normal browser: the clean UA, plus the request
-// headers a real Chrome sends. Applied to the default session and every job's
-// persist:<id> partition as it's created.
+// Make each session look like a normal browser: set the clean UA (and the
+// Accept-Language) via setUserAgent. We deliberately DON'T touch headers with
+// webRequest.onBeforeSendHeaders — modifying any header there makes Chromium
+// re-emit them ALPHABETICALLY, which never matches Chrome's fixed header order
+// and is itself a strong bot signal. Leaving them alone preserves the real
+// Chrome header order + client hints that the engine already produces.
 function hardenSession(ses) {
   if (!ses || ses.__hardened) return;
   ses.__hardened = true;
   try {
-    ses.setUserAgent(STEALTH_UA, 'en-GB');
-  } catch (_) {}
-  try {
-    const extra = defaultHeaders('en-GB,en;q=0.9');
-    const hints = clientHints(STEALTH_UA);
-    ses.webRequest.onBeforeSendHeaders((details, cb) => {
-      const h = details.requestHeaders;
-      // Force the clean UA if the Electron/app token ever reappears.
-      if (/Electron|scrape-?studio/i.test(h['User-Agent'] || '')) h['User-Agent'] = STEALTH_UA;
-      // Fill in the headers a real Chrome sends, without clobbering real values.
-      for (const k of Object.keys(extra)) {
-        if (h[k] == null) h[k] = extra[k];
-      }
-      // OVERWRITE the client hints — Electron's advertise `"Electron";v=…`, the
-      // single biggest tell after the UA. Delete any case-variant first so we
-      // replace rather than duplicate the header.
-      for (const k of Object.keys(hints)) {
-        for (const existing of Object.keys(h)) {
-          if (existing.toLowerCase() === k) delete h[existing];
-        }
-        h[k] = hints[k];
-      }
-      cb({ requestHeaders: h });
-    });
+    // Second arg is a comma-separated language LIST; Electron appends the q-values
+    // itself, so pass bare codes (not "en;q=0.9") or you get a doubled "q=0.9;q=0.9".
+    ses.setUserAgent(STEALTH_UA, 'en-GB,en');
   } catch (_) {}
 }
 
@@ -79,6 +61,37 @@ function hardenSession(ses) {
 app.on('session-created', (ses) => {
   keepSessionCookies(ses);
   hardenSession(ses);
+});
+
+// The metadata that makes Chromium emit a clean UA + matching Sec-CH-UA client
+// hints, in Chrome's real header order.
+const UA_METADATA = userAgentMetadata(STEALTH_UA);
+
+// Apply the clean UA + client-hint metadata natively, via CDP. This is the ONLY
+// way to get a consistent UA string AND Sec-CH-UA headers in Chrome's natural
+// order — plain setUserAgent drops the client hints, and a webRequest rewrite
+// re-sorts headers alphabetically (both are bot tells). Applied to every guest
+// page (each job's <webview>) as it's created.
+function applyUaOverride(contents) {
+  try {
+    const dbg = contents.debugger;
+    if (!dbg.isAttached()) dbg.attach('1.3');
+    dbg.sendCommand('Network.enable').catch(() => {});
+    dbg.sendCommand('Network.setUserAgentOverride', {
+      userAgent: STEALTH_UA,
+      acceptLanguage: 'en-GB,en;q=0.9',
+      platform: UA_METADATA.platform,
+      userAgentMetadata: UA_METADATA
+    }).catch(() => {});
+  } catch (_) {}
+}
+
+app.on('web-contents-created', (_e, contents) => {
+  if (contents.getType() === 'webview') {
+    // Re-assert on each navigation — a cross-origin nav can reset the override.
+    applyUaOverride(contents);
+    contents.on('did-start-navigation', () => applyUaOverride(contents));
+  }
 });
 
 // Application menu with a View menu for switching the theme.

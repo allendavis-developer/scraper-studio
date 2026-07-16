@@ -68,5 +68,35 @@
     };
   }
 
-  return { realisticUserAgent, looksLikeBot, defaultHeaders, clientHints };
+  // The full User-Agent Client Hints metadata for CDP
+  // `Network.setUserAgentOverride`. Setting BOTH the UA string and this metadata
+  // makes Chromium natively emit a clean UA + matching Sec-CH-UA in Chrome's real
+  // header order — unlike a webRequest rewrite (which sorts headers alphabetically
+  // and unlike a plain setUserAgent (which drops the client hints entirely).
+  function userAgentMetadata(ua) {
+    const s = String(ua || '');
+    const full = (s.match(/Chrome\/([\d.]+)/) || [])[1] || '131.0.0.0';
+    const major = full.split('.')[0];
+    let platform = 'Windows';
+    let platformVersion = '10.0.0';
+    let architecture = 'x86';
+    if (/Macintosh|Mac OS X/i.test(s)) { platform = 'macOS'; platformVersion = '14.4.0'; architecture = 'arm'; }
+    else if (/Linux/i.test(s) && !/Android/i.test(s)) { platform = 'Linux'; platformVersion = '6.5.0'; }
+    const brands = [
+      { brand: 'Chromium', version: major },
+      { brand: 'Google Chrome', version: major },
+      { brand: 'Not?A_Brand', version: '24' }
+    ];
+    const fullVersionList = [
+      { brand: 'Chromium', version: full },
+      { brand: 'Google Chrome', version: full },
+      { brand: 'Not?A_Brand', version: '24.0.0.0' }
+    ];
+    return {
+      brands, fullVersion: full, fullVersionList,
+      platform, platformVersion, architecture, model: '', mobile: false, bitness: '64', wow64: false
+    };
+  }
+
+  return { realisticUserAgent, looksLikeBot, defaultHeaders, clientHints, userAgentMetadata };
 });
