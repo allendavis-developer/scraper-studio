@@ -536,6 +536,25 @@
     return `!!document.querySelector(${J(selector)})`;
   }
 
+  // Collect a value from EVERY element matching `selector` into an array — the
+  // "gather a list" primitive (e.g. every child link's href, every price).
+  // mode 'attr' reads an attribute; for href we use the .href PROPERTY so the
+  // URL is absolute (ready to navigate to). Anything else reads trimmed text.
+  function collectExpr(selector, mode, attr) {
+    return `(() => {
+      const els = Array.from(document.querySelectorAll(${J(selector)}));
+      const mode = ${J(mode || 'text')}, attr = ${J(attr || '')};
+      return els.map((el) => {
+        if (mode === 'attr') {
+          if (attr === 'href' && el.href != null && el.href !== '') return el.href;
+          if (attr === 'src' && el.src != null && el.src !== '') return el.src;
+          return el.getAttribute(attr) || '';
+        }
+        return (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
+      });
+    })()`;
+  }
+
   // What would you most likely want OFF this element? A form field's value lives
   // in .value (its text is empty) — the #1 "why is it 0/blank?" gotcha — so we
   // suggest the right source instead of the generic "text". Returns e.g.
@@ -614,6 +633,7 @@
     hoverExpr,
     readOptionsExpr,
     existsExpr,
+    collectExpr,
     textExistsExpr,
     suggestSourceExpr,
     scrollExpr

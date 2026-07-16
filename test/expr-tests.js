@@ -69,6 +69,25 @@ eq('date via DD/MM/YYYY input', Expr.evaluate('dateAdd("07/07/2026", 1)', {}), '
 eq('direct export dateAdd', Expr.dateAdd('2026-07-07', 1), '2026-07-08');
 eq('today() shape', /^\d{4}-\d{2}-\d{2}$/.test(Expr.today()), true);
 
+// --- List helpers: the work-queue primitives (drive arbitrary-depth crawls) --
+const Q = { q: ['a', 'b', 'c'], one: 'x', empty2: [] };
+eq('listLen of array', Expr.evaluate('listLen(q)', Q), 3);
+eq('listLen of empty', Expr.evaluate('listLen(empty2)', Q), 0);
+eq('listLen of scalar counts as 1', Expr.evaluate('listLen(one)', Q), 1);
+eq('listLen of missing is 0', Expr.evaluate('listLen(nope)', Q), 0);
+eq('listFirst', Expr.evaluate('listFirst(q)', Q), 'a');
+eq('listFirst of empty → ""', Expr.evaluate('listFirst(empty2)', Q), '');
+eq('listRest pops the front', Expr.evaluate('listRest(q)', Q), ['b', 'c']);
+eq('listRest of empty → []', Expr.evaluate('listRest(empty2)', Q), []);
+eq('listConcat two lists', Expr.evaluate('listConcat(q, listRest(q))', Q), ['a', 'b', 'c', 'b', 'c']);
+eq('listConcat appends a scalar', Expr.evaluate('listConcat(q, one)', Q), ['a', 'b', 'c', 'x']);
+eq('listConcat onto empty', Expr.evaluate('listConcat(empty2, one)', Q), ['x']);
+eq('listHas present', Expr.evaluate('listHas(q, "b")', Q), true);
+eq('listHas absent', Expr.evaluate('listHas(q, "z")', Q), false);
+// The queue-drain shape: front item + remaining, and the terminate check.
+eq('drain: len>0 gate', Expr.evaluate('listLen(q) > 0', Q), true);
+eq('drain: emptied gate', Expr.evaluate('listLen(listRest(listRest(listRest(q)))) > 0', Q), false);
+
 eq('interp var', Expr.interpolate('page {{count}} of {{total}}', V), 'page 3 of 10');
 eq('interp expr', Expr.interpolate('next={{count + 1}}', V), 'next=4');
 eq('interp plain', Expr.interpolate('no braces', V), 'no braces');

@@ -1168,8 +1168,50 @@ function compileFormula(f) {
     if (!ds) return '""';
     return `lookup(${ds}, ${JSON.stringify(f.keyCol || '')}, ${JSON.stringify(f.keyVal || '')}, ${JSON.stringify(f.valCol || '')})`;
   }
+  if (f.kind === 'textTest') {
+    // A yes/no check on a value: contains / starts with / matches / is empty…
+    // Compiles to the evaluator's own string helpers. Text operands are quoted
+    // literals; column operands are bare identifiers.
+    const operand = (o) => {
+      if (!o) return '""';
+      if (o.type === 'num') return operandExpr(o);
+      if (o.type === 'text') return JSON.stringify(o.v == null ? '' : String(o.v));
+      return colRef(o.v, '""');
+    };
+    const a = operand(f.a);
+    const b = operand(f.b);
+    switch (f.op) {
+      case 'ncontains': return `!contains(${a}, ${b})`;
+      case 'startsWith': return `startsWith(${a}, ${b})`;
+      case 'endsWith': return `endsWith(${a}, ${b})`;
+      case 'matches': return `test(${a}, ${b})`;
+      case 'nmatches': return `!test(${a}, ${b})`;
+      case 'eq': return `${a} == ${b}`;
+      case 'ne': return `${a} != ${b}`;
+      case 'empty': return `len(trim(${a})) == 0`;
+      case 'nempty': return `len(trim(${a})) > 0`;
+      case 'contains':
+      default: return `contains(${a}, ${b})`;
+    }
+  }
   return '';
 }
+
+// The operators offered by the "Yes/No test" formula kind. NO_VALUE ones don't
+// use the second operand.
+const TEXT_TEST_OPS = [
+  { v: 'contains', label: 'contains' },
+  { v: 'ncontains', label: 'does not contain' },
+  { v: 'eq', label: 'is exactly' },
+  { v: 'ne', label: 'is not' },
+  { v: 'startsWith', label: 'starts with' },
+  { v: 'endsWith', label: 'ends with' },
+  { v: 'matches', label: 'matches (regex)' },
+  { v: 'nmatches', label: 'does not match (regex)' },
+  { v: 'empty', label: 'is empty' },
+  { v: 'nempty', label: 'is not empty' }
+];
+const TEXT_TEST_NOVALUE = new Set(['empty', 'nempty']);
 
 // A blank formula of each kind, used when the user first switches to Formula or
 // changes preset.
@@ -1183,6 +1225,8 @@ function blankFormula(kind) {
       return { kind: 'combine', sep: ' ', parts: [{ type: 'col', v: '' }, { type: 'col', v: '' }] };
     case 'lookup':
       return { kind: 'lookup', dataset: '', keyCol: '', keyVal: '', valCol: '' };
+    case 'textTest':
+      return { kind: 'textTest', a: { type: 'col', v: '' }, op: 'contains', b: { type: 'text', v: '' } };
     default:
       return { kind: 'math', a: { type: 'col', v: '' }, op: '-', b: { type: 'col', v: '' } };
   }
@@ -1198,6 +1242,10 @@ function formulaSummary(f) {
   if (f.kind === 'combine') return (f.parts || []).map(opnd).join(' + ') || '(pieces)';
   if (f.kind === 'lookup')
     return `${f.dataset || '(table)'} where ${f.keyCol || '?'}=“${f.keyVal || '?'}” → ${f.valCol || '?'}`;
+  if (f.kind === 'textTest') {
+    const op = (TEXT_TEST_OPS.find((o) => o.v === f.op) || { label: f.op || 'contains' }).label;
+    return TEXT_TEST_NOVALUE.has(f.op) ? `${opnd(f.a)} ${op}` : `${opnd(f.a)} ${op} ${opnd(f.b)}`;
+  }
   return '';
 }
 
@@ -2380,6 +2428,7 @@ function renderFormulaBuilder(s, host) {
     { value: 'math', label: 'Maths  ( A ＋－×÷ B )' },
     { value: 'percent', label: 'Percentage  ( A as % of B )' },
     { value: 'combine', label: 'Combine text  ( join values )' },
+    { value: 'textTest', label: 'Yes/No test  ( contains, starts with… )' },
     { value: 'lookup', label: 'Look up a value from a table / list' }
   ]);
   kindSel.addEventListener('change', () => {
@@ -2448,6 +2497,16 @@ function renderFormulaBuilder(s, host) {
     };
     renderParts();
     body.append(partsWrap);
+  } else if (f.kind === 'textTest') {
+    const opSel = select(f.op || 'contains', TEXT_TEST_OPS.map((o) => ({ value: o.v, label: o.label })));
+    const bWrap = el('span', { className: 'operand-wrap' }, [operandControl(f.b, ['text', 'col'], refresh)]);
+    const syncB = () => { bWrap.style.display = TEXT_TEST_NOVALUE.has(f.op) ? 'none' : ''; };
+    opSel.addEventListener('change', () => { f.op = opSel.value; syncB(); refresh(); });
+    body.append(el('div', { className: 'formula-row' }, [operandControl(f.a, ['col', 'text'], refresh), opSel, bWrap]));
+    syncB();
+    body.append(el('div', { className: 'hint', textContent:
+      'A Yes/No answer — e.g. does the Name contain “gold”, or is the Barserial empty. ' +
+      'Great as a column, or feed it into an “If” / “Skip item” to keep only the rows you want.' }));
   } else if (f.kind === 'lookup') {
     const defs = datasetDefs();
     if (!defs.length) {
@@ -2795,6 +2854,7 @@ function buildEditorBody(s, root) {
       { value: 'checked', label: 'Whether it’s ticked (yes/no)' },
       { value: 'count', label: 'How MANY of them there are (a number)' },
       { value: 'exists', label: 'Whether it exists at all (yes/no)' },
+      { value: 'collect', label: 'ALL of them, as a list (for a crawl queue)' },
       { value: 'textExists', label: '— whether some TEXT appears on the page (yes/no)' },
       { value: 'url', label: '— the page’s address (no element needed)' },
       { value: 'expr', label: '— type a raw expression (advanced)' }
@@ -2945,6 +3005,13 @@ function buildEditorBody(s, root) {
           livePrev.className = 'get-live ' + (yes ? 'ok' : 'bad');
           return;
         }
+        if (s.source === 'collect') {
+          const list = await pageEval(PA.collectExpr(full, (s.attr || '').trim() ? 'attr' : 'text', s.attr));
+          const n = Array.isArray(list) ? list.length : 0;
+          livePrev.textContent = `value now: a list of ${n} item${n === 1 ? '' : 's'}` + (n ? ` — e.g. ${String(list[0]).slice(0, 60)}` : '');
+          livePrev.className = 'get-live ' + (n ? 'ok' : 'bad');
+          return;
+        }
         // Retry: the webview can report "not found" on the first eval after the
         // editor reopens, even though the element is there (and the run works).
         const found = await pageEvalStable(PA.existsExpr(full), (r) => !r);
@@ -2962,13 +3029,15 @@ function buildEditorBody(s, root) {
 
     const sync = () => {
       const needsSelector = !(s.source === 'expr' || s.source === 'url' || s.source === 'textExists');
-      const readsText = !['expr', 'count', 'exists', 'textExists', 'checked'].includes(s.source);
+      const readsText = !['expr', 'count', 'exists', 'collect', 'textExists', 'checked'].includes(s.source);
       exprField.style.display = s.source === 'expr' ? '' : 'none';
       teField.style.display = s.source === 'textExists' ? '' : 'none';
       selField.style.display = needsSelector ? '' : 'none';
       // "Wait first" only applies to sources that read a specific element.
-      waitRow.style.display = needsSelector && s.source !== 'count' && s.source !== 'exists' ? '' : 'none';
-      attrField.style.display = s.source === 'attr' ? '' : 'none';
+      waitRow.style.display = needsSelector && !['count', 'exists', 'collect'].includes(s.source) ? '' : 'none';
+      // "collect" can read an attribute (e.g. href) off every match, so it gets
+      // the attribute box too.
+      attrField.style.display = (s.source === 'attr' || s.source === 'collect') ? '' : 'none';
       cleanWrap.style.display = readsText ? '' : 'none';
       if (needsSelector) check();
       if (s.source === 'textExists') teTest();
@@ -5312,6 +5381,11 @@ async function execGet(s, ctx) {
     val = await pageEval(`document.querySelectorAll(${JSON.stringify(sel)}).length`);
   } else if (s.source === 'exists') {
     val = await pageEval(PA.existsExpr(sel));
+  } else if (s.source === 'collect') {
+    // Gather EVERY match into a list (e.g. all child link hrefs) — the seed/grow
+    // primitive for a work-queue crawl. Keep it as a working value (list var).
+    val = await pageEval(PA.collectExpr(sel, (s.attr || '').trim() ? 'attr' : 'text', s.attr));
+    note = ` (${Array.isArray(val) ? val.length : 0} item${Array.isArray(val) && val.length === 1 ? '' : 's'})`;
   } else if (s.source === 'textExists') {
     const te = s.textExists || {};
     const container = te.container ? await resolveSel(te.container, ctx, s.abs) : '';

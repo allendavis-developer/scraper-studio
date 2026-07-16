@@ -305,7 +305,25 @@
       return rows.reduce((a, r) => a + toNum(r && r[c]), 0);
     },
     // How many rows a dataset has.
-    countrows: (rows) => (Array.isArray(rows) ? rows.length : 0)
+    countrows: (rows) => (Array.isArray(rows) ? rows.length : 0),
+    // --- List helpers: the primitives that make a "work queue" (and therefore
+    // arbitrary-depth crawling) expressible. A list variable is just a JS array
+    // held in a var; these read/grow/drain it without any typing of brackets.
+    //   listLen(q)          → how many items are left (drive a While: > 0)
+    //   listFirst(q)        → the next item to process (peek the front)
+    //   listRest(q)         → the list with the front removed (pop)
+    //   listConcat(a, b)    → a with b's items appended (b may be one value)
+    //   listHas(a, x)       → is x already in a? (for a "seen" set / de-dupe)
+    listLen: (a) => (Array.isArray(a) ? a.length : a == null || a === '' ? 0 : 1),
+    listFirst: (a) => (Array.isArray(a) ? (a.length ? a[0] : '') : a == null ? '' : a),
+    listRest: (a) => (Array.isArray(a) ? a.slice(1) : []),
+    listConcat: (a, b) => {
+      const l = Array.isArray(a) ? a.slice() : a == null || a === '' ? [] : [a];
+      if (Array.isArray(b)) return l.concat(b);
+      if (b == null || b === '') return l;
+      return l.concat([b]);
+    },
+    listHas: (a, x) => (Array.isArray(a) ? a.some((v) => String(v) === String(x)) : String(a) === String(x))
   };
 
   function ev(node, vars) {

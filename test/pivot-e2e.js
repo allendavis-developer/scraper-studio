@@ -54,7 +54,17 @@ const RECIPE = [
   { type: 'formula', name: 'gap', target: 'column',
     formula: { kind: 'math', a: { type: 'col', v: 'cerysTotal' }, op: '-', b: { type: 'num', v: '10' } } },
   // An ordinary single value sitting on the same row.
-  { type: 'get', name: 'reportName', target: 'column', source: 'text', selector: 'h5', attr: '', transforms: [] }
+  { type: 'get', name: 'reportName', target: 'column', source: 'text', selector: 'h5', attr: '', transforms: [] },
+  // Yes/No "text test" formula columns (contains / does-not-contain / starts-with
+  // / is-empty), all reading the reportName grabbed above.
+  { type: 'formula', name: 'hasSales', target: 'column',
+    formula: { kind: 'textTest', a: { type: 'col', v: 'reportName' }, op: 'contains', b: { type: 'text', v: 'Sales' } } },
+  { type: 'formula', name: 'noGold', target: 'column',
+    formula: { kind: 'textTest', a: { type: 'col', v: 'reportName' }, op: 'ncontains', b: { type: 'text', v: 'Gold' } } },
+  { type: 'formula', name: 'startsSales', target: 'column',
+    formula: { kind: 'textTest', a: { type: 'col', v: 'reportName' }, op: 'startsWith', b: { type: 'text', v: 'Sales' } } },
+  { type: 'formula', name: 'nameEmpty', target: 'column',
+    formula: { kind: 'textTest', a: { type: 'col', v: 'reportName' }, op: 'empty', b: { type: 'text', v: '' } } }
 ];
 
 (async () => {
@@ -132,6 +142,12 @@ const RECIPE = [
     check('Formula look-up column pulled Cerys’s total off the dataset', r.cerysTotal === 110, JSON.stringify(r.cerysTotal));
     check('Formula maths column computed cerysTotal − 10', r.gap === 100, JSON.stringify(r.gap));
     check('an ordinary single value rides on the same row', r.reportName === 'Sales & Income Summary', JSON.stringify(r.reportName));
+
+    // Yes/No "text test" formula columns.
+    check('textTest: reportName contains "Sales" → true', r.hasSales === true, JSON.stringify(r.hasSales));
+    check('textTest: reportName does-not-contain "Gold" → true', r.noGold === true, JSON.stringify(r.noGold));
+    check('textTest: reportName starts-with "Sales" → true', r.startsSales === true, JSON.stringify(r.startsSales));
+    check('textTest: reportName is-empty → false', r.nameEmpty === false, JSON.stringify(r.nameEmpty));
 
     // ---- [2] The editors render (UI smoke): keep control, formula, spread. ----
     console.log('\n[2] The new editors open and wire up');

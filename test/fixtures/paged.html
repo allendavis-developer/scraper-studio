@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Paged</title></head>
+<body>
+<h1>Paged report</h1>
+<table id="t" class="table"><thead>
+  <tr><th>Barserial</th><th>Name</th></tr>
+</thead><tbody id="rows"></tbody></table>
+
+<!-- The "next" control is ALWAYS present. On the last page it gets class
+     "disabled" (the tricky case: it's there, but not clickable) — so the only
+     reliable "stop" signal is `#next:not(.disabled)` no longer matching. -->
+<a href="#" id="next">Next ›</a>
+<div id="pageinfo"></div>
+
+<script>
+  // 3 pages of 2 rows each.
+  const PAGES = [
+    [['BSER-001', 'Alpha'], ['BSER-002', 'Bravo']],
+    [['BSER-003', 'Charlie'], ['BSER-004', 'Delta']],
+    [['BSER-005', 'Echo'], ['BSER-006', 'Foxtrot']]
+  ];
+  let page = 0;
+  const rowsEl = document.getElementById('rows');
+  const nextEl = document.getElementById('next');
+  const info = document.getElementById('pageinfo');
+  function render() {
+    rowsEl.innerHTML = PAGES[page].map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+    info.textContent = 'Page ' + (page + 1) + ' of ' + PAGES.length;
+    // Last page: keep the button but make it non-clickable (class + aria).
+    if (page >= PAGES.length - 1) { nextEl.classList.add('disabled'); nextEl.setAttribute('aria-disabled', 'true'); }
+    else { nextEl.classList.remove('disabled'); nextEl.removeAttribute('aria-disabled'); }
+  }
+  nextEl.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (nextEl.classList.contains('disabled')) return;
+    if (page < PAGES.length - 1) { page++; render(); }
+  });
+  render();
+</script>
+</body>
+</html>
