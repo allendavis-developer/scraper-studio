@@ -8,11 +8,12 @@
 const { contextBridge, ipcRenderer, webFrame } = require('electron');
 
 contextBridge.exposeInMainWorld('harvest', {
-  saveCsv: (defaultName, contents) =>
-    ipcRenderer.invoke('save-csv', { defaultName, contents }),
-  saveRecipe: (defaultName, json) =>
-    ipcRenderer.invoke('save-recipe', { defaultName, json }),
-  loadRecipe: () => ipcRenderer.invoke('load-recipe'),
+  saveCsv: (defaultName, contents, encoding) =>
+    ipcRenderer.invoke('save-csv', { defaultName, contents, encoding }),
+  // Export / import a portable .job file (whole scrape as one shareable file).
+  exportJob: (defaultName, json) =>
+    ipcRenderer.invoke('export-job', { defaultName, json }),
+  importJob: () => ipcRenderer.invoke('import-job'),
   // Zoom the app's OWN interface (the host frame), independent of the webview.
   setUiZoom: (factor) => {
     if (webFrame && webFrame.setZoomFactor) webFrame.setZoomFactor(factor);
@@ -25,5 +26,15 @@ contextBridge.exposeInMainWorld('harvest', {
     load: (id) => ipcRenderer.invoke('jobs:load', id),
     save: (job) => ipcRenderer.invoke('jobs:save', job),
     remove: (id) => ipcRenderer.invoke('jobs:delete', id)
+  },
+  // Reusable task library (saved step subtrees).
+  tasks: {
+    list: () => ipcRenderer.invoke('tasks:list'),
+    save: (task) => ipcRenderer.invoke('tasks:save', task),
+    remove: (id) => ipcRenderer.invoke('tasks:delete', id)
+  },
+  // Per-job sign-in sessions.
+  auth: {
+    clear: (partition) => ipcRenderer.invoke('auth:clear', partition)
   }
 });

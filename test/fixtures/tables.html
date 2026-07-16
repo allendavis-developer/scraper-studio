@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Three tables</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; }
+      table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
+      th, td { padding: 6px 10px; border-bottom: 1px solid #ddd; text-align: left; }
+      tr.total td { font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <!-- Three tables on ONE page. Picking a cell must scrape ONLY that table. -->
+
+    <h2>Sales</h2>
+    <table class="table">
+      <thead>
+        <tr><th>Type</th><th>Gross</th><th>Margin</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Graded Sales</td><td>£10.00</td><td>£2.00</td></tr>
+        <tr><td>Second Hand</td><td>£511.09</td><td>£211.95</td></tr>
+        <tr class="total"><td>Total</td><td>£521.09</td><td>£213.95</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Staff</h2>
+    <table class="table">
+      <thead>
+        <tr><th>Name</th><th>Role</th><th>Hours</th><th>Rate</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Ann</td><td>Manager</td><td>38</td><td>£22.50</td></tr>
+        <tr><td>Bo</td><td>Valuer</td><td>40</td><td>£18.00</td></tr>
+        <tr><td>Cal</td><td>Cashier</td><td>21</td><td>£12.75</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Stock</h2>
+    <table class="table">
+      <thead>
+        <tr><th>SKU</th><th>Item</th><th>Qty</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>A-1</td><td>Ring</td><td>4</td></tr>
+        <tr><td>A-2</td><td>Watch</td><td>9</td></tr>
+      </tbody>
+    </table>
+  </body>
+</html>

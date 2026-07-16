@@ -164,7 +164,65 @@
   };
   const looksNum = (v) => isNum(v) || (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)));
 
+  // ---- dates -------------------------------------------------------------
+  // Dates are plain 'YYYY-MM-DD' strings — no Date objects flowing around. These
+  // helpers do the fiddly bits (month/year rollover, formatting) so a date range
+  // loop is trivial. All maths is in UTC so a day never drifts across a timezone.
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+  const pad2 = (n) => String(n).padStart(2, '0');
+
+  function parseDate(s) {
+    if (s instanceof Date) return isNaN(s.getTime()) ? null : s;
+    const str = String(s == null ? '' : s).trim();
+    let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // ISO
+    if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // DD/MM/YYYY
+    if (m) return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+    const t = Date.parse(str);
+    return isNaN(t) ? null : new Date(t);
+  }
+  function isoDate(dt) {
+    return dt.getUTCFullYear() + '-' + pad2(dt.getUTCMonth() + 1) + '-' + pad2(dt.getUTCDate());
+  }
+  function fmtDate(dt, fmt) {
+    const Y = dt.getUTCFullYear(), M = dt.getUTCMonth() + 1, D = dt.getUTCDate();
+    const map = {
+      YYYY: String(Y), YY: String(Y).slice(-2),
+      MMMM: MONTHS[M - 1], MMM: MONTHS[M - 1].slice(0, 3), MM: pad2(M), M: String(M),
+      DD: pad2(D), D: String(D)
+    };
+    // Single pass, longest tokens first, so "March" isn't re-scanned for "M".
+    return String(fmt || 'YYYY-MM-DD').replace(/YYYY|YY|MMMM|MMM|MM|M|DD|D/g, (t) => map[t]);
+  }
+  // dateAdd(date, n) → the date n days later (or earlier), as 'YYYY-MM-DD'.
+  function dateAdd(s, n) {
+    const dt = parseDate(s);
+    if (!dt) return '';
+    dt.setUTCDate(dt.getUTCDate() + Math.trunc(toNum(n)));
+    return isoDate(dt);
+  }
+  // dateFmt(date, "DD/MM/YYYY") → the date written in that format.
+  function dateFmt(s, fmt) {
+    const dt = parseDate(s);
+    return dt ? fmtDate(dt, fmt) : '';
+  }
+  // dateDiff(a, b) → whole days from a to b (b − a).
+  function dateDiff(a, b) {
+    const da = parseDate(a), db = parseDate(b);
+    return da && db ? Math.round((db - da) / 86400000) : 0;
+  }
+  // today() → today's date as 'YYYY-MM-DD' (local calendar day).
+  function today() {
+    const n = new Date();
+    return n.getFullYear() + '-' + pad2(n.getMonth() + 1) + '-' + pad2(n.getDate());
+  }
+
   const FUNCS = {
+    dateAdd,
+    dateFmt,
+    dateDiff,
+    today,
     len: (x) => String(x == null ? '' : x).length,
     lower: (x) => String(x == null ? '' : x).toLowerCase(),
     upper: (x) => String(x == null ? '' : x).toUpperCase(),
@@ -220,7 +278,34 @@
       } catch (_) {
         return String(s == null ? '' : s);
       }
-    }
+    },
+    // --- Table helpers: read a value out of a "dataset" (a grabbed table kept
+    // as rows). This is what powers click-built Formula columns — a pivot like
+    // "Sales by Cerys" is really lookup(salesByUser, "user", "Cerys", "total").
+    //
+    // `rows` is an array of {column: value} objects. Matching on the key is
+    // trimmed and case-insensitive so "Cerys" finds " cerys ". Returns "" when
+    // nothing matches, so a formula never blows up on a missing person/row.
+    lookup: (rows, keyCol, keyVal, valCol) => {
+      if (!Array.isArray(rows)) return '';
+      const key = String(keyCol == null ? '' : keyCol);
+      const want = String(keyVal == null ? '' : keyVal).trim().toLowerCase();
+      const row = rows.find(
+        (r) => r && String(r[key] == null ? '' : r[key]).trim().toLowerCase() === want
+      );
+      if (!row) return '';
+      const v = row[String(valCol == null ? '' : valCol)];
+      return v == null ? '' : v;
+    },
+    // Sum one column across every row of a dataset (e.g. a grand total the page
+    // doesn't show). Non-numeric cells count as 0.
+    sumcol: (rows, valCol) => {
+      if (!Array.isArray(rows)) return 0;
+      const c = String(valCol == null ? '' : valCol);
+      return rows.reduce((a, r) => a + toNum(r && r[c]), 0);
+    },
+    // How many rows a dataset has.
+    countrows: (rows) => (Array.isArray(rows) ? rows.length : 0)
   };
 
   function ev(node, vars) {
@@ -307,5 +392,5 @@
     });
   }
 
-  return { evaluate, interpolate, truthy, parse };
+  return { evaluate, interpolate, truthy, parse, dateAdd, dateFmt, dateDiff, today };
 });

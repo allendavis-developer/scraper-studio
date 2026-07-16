@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Stock item</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; }
+      .field { margin: 6px 0; }
+      .label { color: #666; }
+      a { color: #2b6cb0; }
+    </style>
+  </head>
+  <body>
+    <h1 id="title">Stock item</h1>
+    <div class="field"><span class="label">Barserial:</span> <span id="serial" class="serial"></span></div>
+    <div class="field"><span class="label">Bought in by:</span> <span id="buyer" class="bought-by"></span></div>
+    <div class="field"><span class="label">Supplier:</span> <span id="supplier" class="supplier"></span></div>
+    <p><a href="stock.html">← back to stock list</a></p>
+
+    <script>
+      // Per-item detail, keyed by the ?id= in the link the row's VIEW opened.
+      var DATA = {
+        BAR001: { name: '9ct Gold Ring',    buyer: 'Cerys',    supplier: 'Acme Jewellers' },
+        BAR002: { name: 'Silver Bracelet',  buyer: 'Sobaan',   supplier: 'Gold Traders Ltd' },
+        BAR003: { name: 'Diamond Pendant',  buyer: 'harmonyA', supplier: 'Acme Jewellers' },
+        BAR004: { name: 'Rose Gold Watch',  buyer: 'Cerys',    supplier: 'Pawn Partners' },
+        BAR005: { name: 'Pearl Earrings',   buyer: 'Charlie2', supplier: 'Gold Traders Ltd' }
+      };
+      var id = new URLSearchParams(location.search).get('id') || '';
+      var d = DATA[id] || { name: '(unknown)', buyer: '', supplier: '' };
+      document.getElementById('serial').textContent = id;
+      document.getElementById('buyer').textContent = d.buyer;
+      document.getElementById('supplier').textContent = d.supplier;
+      document.getElementById('title').textContent = d.name || 'Stock item';
+    </script>
+  </body>
+</html>

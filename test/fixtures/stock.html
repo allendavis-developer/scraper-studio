@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Stock list</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; }
+      table { border-collapse: collapse; width: 100%; max-width: 900px; }
+      th, td { padding: 8px 12px; border-bottom: 1px solid #eee; text-align: left; }
+      td.num { text-align: right; }
+      tr.total td { font-weight: 700; }
+      a.view { color: #2b6cb0; text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <h1>Stock</h1>
+    <table class="stock">
+      <thead>
+        <tr>
+          <th>Barserial</th>
+          <th>Name</th>
+          <th>Cost</th>
+          <th>Retail</th>
+          <th>Qty</th>
+          <th>Created</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>BAR001</td><td>9ct Gold Ring</td><td class="num">£45.00</td><td class="num">£120.00</td><td class="num">1</td><td>2026-01-04</td>
+          <td><a class="view" href="stock-item.html?id=BAR001">VIEW</a></td>
+        </tr>
+        <tr>
+          <td>BAR002</td><td>Silver Bracelet</td><td class="num">£12.50</td><td class="num">£40.00</td><td class="num">3</td><td>2026-01-06</td>
+          <td><a class="view" href="stock-item.html?id=BAR002">VIEW</a></td>
+        </tr>
+        <tr>
+          <td>BAR003</td><td>Diamond Pendant</td><td class="num">£380.00</td><td class="num">£950.00</td><td class="num">1</td><td>2026-01-09</td>
+          <td><a class="view" href="stock-item.html?id=BAR003">VIEW</a></td>
+        </tr>
+        <tr>
+          <td>BAR004</td><td>Rose Gold Watch</td><td class="num">£210.00</td><td class="num">£525.00</td><td class="num">2</td><td>2026-01-11</td>
+          <td><a class="view" href="stock-item.html?id=BAR004">VIEW</a></td>
+        </tr>
+        <tr>
+          <td>BAR005</td><td>Pearl Earrings</td><td class="num">£30.00</td><td class="num">£85.00</td><td class="num">4</td><td>2026-01-14</td>
+          <td><a class="view" href="stock-item.html?id=BAR005">VIEW</a></td>
+        </tr>
+        <tr class="total">
+          <td>Total</td><td></td><td class="num">£677.50</td><td class="num">£1,720.00</td><td class="num">11</td><td></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>

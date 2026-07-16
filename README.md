@@ -3,6 +3,10 @@
 > **New to it? Read [GUIDE.md](GUIDE.md)** — a plain-language user guide with a
 > cookbook of real jobs (list→detail drill-down, date ranges, infinite scroll)
 > and an honest list of current limitations.
+>
+> **Want a guided tour of the graph editor + the four pre-loaded example jobs?**
+> Read **[TUTORIAL.md](TUTORIAL.md)** — it explains every panel on screen, how
+> data flows into a CSV, and how to rebuild each seeded job yourself.
 
 A visual, point-and-click web scraper. Load any website in an embedded browser,
 **click the elements you want** (no inspect-element, no hand-writing selectors),
@@ -20,7 +24,8 @@ npm start
 The app is a two-pane Electron desktop app:
 
 - **Left — the program.** An ordered list of steps you build visually. Add
-  steps from the palette, reorder them by dragging, edit them in a dialog.
+  steps from the **＋ Add step** directory, reorder them by dragging, edit them in
+  a dialog. **▶ Run** sits in the browser bar, always in reach.
 - **Right — the browser.** A real embedded Chromium (`<webview>`) that loads any
   URL. Two **Pick** buttons put the page into a Ctrl-Shift-C-style picker: hover
   to highlight, click to capture a robust CSS selector automatically.
@@ -30,13 +35,17 @@ The app is a two-pane Electron desktop app:
 1. From the **dashboard**, create a **New scrape job** (name + start URL) or open
    an existing one. Every **Run** re-opens the job's start URL first, so a job is
    reproducible. (Change it anytime in the sidebar, or **⤒ Use current page**.)
-2. Add a **📋 Grab a list** step. In its dialog press **Pick** — the editor
-   temporarily hides so you can see the page, click one repeating item (a product
-   card, table row, search result), and the editor reopens with the selector
-   filled. Scrape Studio generalizes it to match every sibling.
-3. Add **columns** — for each, press **Pick** and click the title / price / link
-   inside the row. Choose what to extract (text, attribute, `href`, `src`,
-   form value, checked state).
+2. **Is it an HTML table?** Add **📊 Grab a table** and press **Pick** — **whole
+   tables light up** as you move over the page, so you can see exactly what you're
+   grabbing. Click one and you're done: every column is filled in from its headers,
+   money/% come out as numbers, and Subtotal/Total rows are left out. Shape the
+   columns (rename / reorder / drop / text-vs-number) with a live preview, and
+   skip to step 6.
+3. Otherwise (product cards, search results) add a **📋 Grab a list** step. Press
+   **Pick** — the editor temporarily hides so you can see the page, click one
+   repeating item, and the editor reopens with the selector filled. Scrape Studio
+   generalizes it to match every sibling. Then add **columns** — for each, press
+   **Pick** and click the title / price / link inside the row.
 4. Optionally add action steps before it (dismiss a cookie banner, select a
    filter, wait for content — see the table below).
 5. For multi-page scraping, wrap it in a **While** loop that clicks “next” (see
@@ -58,10 +67,26 @@ existing one, rename, or delete. The **≡ Jobs** button returns to the dashboar
 ### Logins / authentication (per-job sessions)
 
 Each job has its **own persistent browser session**. To scrape a site that needs
-a login: open the job, browse to the site in the embedded browser, and **log in
-normally**. That session (cookies, etc.) is saved **for that job** and survives
-restarts — and every run reuses it. Different jobs can be signed into different
-sites or accounts independently.
+a login: open the job, press **🔓 Log in to this site** (or just browse there), and
+**log in normally** — including any **2FA**. That session (cookies, etc.) is saved
+**for that job** and survives restarts — and every run reuses it. Different jobs
+can be signed into different sites or accounts independently. That's the whole
+setup — the app does not need to be told where the login page is or whether one
+even exists.
+
+The sidebar's **🔐 Sign-in** panel manages this:
+
+- **Log in to this site** — opens this job's browser so you can sign in. It goes
+  to the *Login page* you optionally set, or the start URL otherwise.
+- **Forget this sign-in** — wipe the saved session (sign out / switch accounts).
+- **Notice when I get signed out (optional)** — set a **“signed-in” marker** by
+  pressing **Pick** and clicking something only visible when logged in (your
+  account menu, a Logout link…). Then every run **checks it first**; if you've
+  been signed out, the run **pauses** and a banner over the browser asks you to
+  log in again (complete 2FA), after which you just press **▶ Run** again. Even
+  with no marker, a run that gets **redirected to a login page** raises the same
+  prompt instead of failing silently. (If a job does its own logging-in *as
+  steps*, leave the marker blank so the pre-run check doesn't block its login.)
 
 ### Values, rows & control flow
 
@@ -100,6 +125,8 @@ For each  .product-card
 | 🔢 Repeat | Repeat the **body** a number of times, with an optional index variable |
 | ⏭ Skip item | Abandon this item — **no row for it** — and move to the next |
 | ⛔ Break | Exit the nearest loop entirely |
+| 📦 Task | Group steps into a **named, collapsible folder** — tidy a long job into readable chunks (*Log in · Search · Extract*), collapse what you're not editing, and reuse it (see below). Runs its steps pass-through — changes nothing about values or rows |
+| 🛟 Try / Recover | Run the **Try** steps; if **any** of them fails, jump to the **recovery** steps instead of stopping the whole run — with optional **retries** first. The visual version of a Success ▸ / Failure ▸ path |
 
 **Conditions are visual** — no typing of `&&`, `>`, etc. For If / While you pick
 **Match ALL / ANY**, then add rules like `price` · **is greater than** · `300`,
@@ -109,7 +136,52 @@ log shows the decision *with the real numbers* —
 never silent.
 
 Block steps are **nested** in the step list; use the **+ add step** button under a
-block to add steps inside it.
+block to add steps inside it. You can also **drag any step into a block or Task**
+(or back out) — build steps top-to-bottom, then drag them where they belong.
+
+### Organizing & scaling up: Tasks, Try/Recover, the Map
+
+A simple scrape is a flat list — perfect. But as automations get *intelligent*
+(branches, retries, per-item logic) a flat list starts hiding a tree. Scrape
+Studio keeps the flat list as the low-friction way to **build**, and lets a job
+grow into richer shapes only when the complexity actually demands it:
+
+- **📦 Tasks (folders).** Group related steps into a named, collapsible Task —
+  `Log in`, `Search products`, `Extract`, `Export`. Collapse the ones you're not
+  editing so a 40-step job reads as four boxes. A Task is *transparent*: it runs
+  its steps in order and changes nothing about how values or rows work — it's
+  purely for readability and reuse. Double-click-style: click the header to
+  expand/collapse.
+- **♻ Reusable tasks.** Press **☆** on any Task (or **Save to library** in its
+  editor) to save it. It then appears under **Your saved tasks** in the **＋ Add
+  step** directory, ready to drop into *any* job — write your `Log in` once and
+  reuse it everywhere.
+  Inserted copies get fresh ids, so editing one never disturbs another.
+- **🛟 Try / Recover (error paths).** Websites are unreliable — a click misses, a
+  page is slow, a login fails. Put the risky steps under **Try**; if any fails,
+  the **recovery** steps run instead of the whole run dying. Add **retries** to
+  attempt the risky steps a few times first (great for flaky logins:
+  *Try: log in · retry 2× → recover: mark unavailable / ⛔ Break*). Success and
+  failure are two visible paths, not a hidden exception.
+- **🗺 Map — the graph editor.** Press **🗺 Map** above the step list to open an
+  **editable, Blueprint-style canvas** where you *build* the job, not just look
+  at it. Each graph is one **container**: the whole program, or the inside of a
+  Module / loop / If / Try. On the canvas you can **add nodes** (`＋ Node`),
+  **drag** them anywhere, **double-click** a node to edit it — or, if it's a
+  Module/loop/branch, to **drill into its own graph** (breadcrumbs across the
+  top let you climb back out) — **wire** one node's right dot ▸ to another's left
+  dot to set the order, and **delete** nodes. Nodes are colour-coded by the three
+  "languages" (**data** green, **page action** blue, **control** amber, **Module**
+  violet), and **Data flow** overlays who *produces* each value and who *consumes*
+  it (e.g. `price` flows from a Grab-value into an If). Drag empty space to pan,
+  scroll to zoom.
+
+This is the core idea: you name a Module in the step list (or add one on the
+canvas), open its Map, and **describe how it works with nodes**; a Module's node
+can then sit inside another Module's Map — so `Log in → Scrape report → Export`
+at the top, each drilled into and authored separately. The Map and the step list
+are two editors of the **same** program, so anything you do in one shows up in
+the other, and the proven run engine executes it unchanged.
 
 **Expressions** (Grab one value → *a calculation*, and `Repeat` count — conditions use
 the visual builder above) support numbers, `"strings"`, values, `+ - * / %`, and
@@ -213,6 +285,7 @@ a following **Click** on the search button submits the actual text.
 | ⬅️ Go back | Return to the previous page (after visiting a detail page) |
 | 📥 Grab one value | Capture a single named value (see above) |
 | 📋 Grab a list | Capture every matching row × its columns → many rows at once |
+| 📊 Grab a table | **An HTML table.** Point at it **once** — any cell — and Scrape Studio reads the table itself: one column per `<th>`, money/% as real numbers, and Subtotal/Total rows left out. Then **shape** it: rename, reorder, drop columns, text-vs-number, with a live preview. If the page has several tables you get **the one you clicked** (it names it: *“Got “Staff” — table 2 of 3”*); add one step per table to scrape more |
 
 **Extraction modes:** text, inner HTML, an attribute, `href`, `src`, a
 form-control **value**, or **checked** state.
@@ -259,15 +332,17 @@ app uses (`src/shared/page-actions.js`) against real sites via headless Chromium
 - **eBay** — best-effort; eBay's anti-bot blocks *headless* runs, so it's
   reported as skipped (the real app is a full interactive browser session).
 
-`npm run test:all` runs everything — **162 passed, 0 failed** (1 skipped: eBay):
+`npm run test:all` runs everything — **225 passed, 0 failed** (1 skipped: eBay):
 
 | Suite | Covers |
 |-------|--------|
 | `expr-tests` (27) | the expression evaluator (no `eval` — CSP-safe) |
 | `transform-tests` (37) | every text clean-up: numbers, text-between, dates, regex |
 | `scrape-tests` (23) | the engine against **real sites**, headless |
-| `ui-e2e` (69) | the **real app** driven via Playwright: picker + Esc-cancel, run, column shaping, action steps, controlled-input fill, recorder, zoom, jobs dashboard, control flow, **relative picking inside a For each**, comparing two values in one card, **Skip item**, self-committing rows, clean-up pipeline + live preview, and the "why did I get 0 rows?" explanations |
+| `ui-e2e` (82) | the **real app** driven via Playwright: picker + Esc-cancel, run, column shaping, action steps, controlled-input fill, recorder, zoom, jobs dashboard, control flow, **relative picking inside a For each**, comparing two values in one card, **Skip item**, self-committing rows, clean-up pipeline + live preview, and the "why did I get 0 rows?" explanations |
 | `legacy-e2e` (6) | **old saved jobs still run** — `Scrape one` / `Set var` / `Add row` migrate to `Grab one value` and produce identical rows |
+| `table-e2e` (17) | **📊 Grab a table**: one pick fills in all 7 columns from the headers, money/% become numbers, header + Subtotal/Total rows are excluded, the column shaper (rename / drop / reorder / retype) survives re-opening, and the CSV matches what you shaped |
+| `workflow-e2e` (33) | **Tasks** (folder render, collapse, pass-through run), **Try / Recover** (failure → recovery, success skips it, retries), cross-list **drag** cycle guard, the editable **Map** (top-level node graph, category colours, data-flow links, wire-to-reorder, drill into a block, add / edit / delete a node), the reusable **task library** (save → insert with fresh ids), and **per-job sign-in** (marker detection, run gating, forget-session, config round-trip) |
 
 Sample CSVs land in `test/output/`.
 
@@ -305,6 +380,7 @@ test/
   scrape-tests.js      Live-site tests that run the engine via headless Chromium
   ui-e2e.js            Drives the real app end-to-end via Playwright/Electron
   legacy-e2e.js        Old saved jobs still load, migrate, and produce the same rows
+  workflow-e2e.js      Tasks, Try/Recover, cross-list drag, the Map view, task library
 ```
 
 Scraping actions run inside the page via `webview.executeJavaScript` using code

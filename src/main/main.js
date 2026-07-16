@@ -2,11 +2,68 @@
 // Owns the application window and handles privileged operations the renderer
 // cannot do directly: showing native save dialogs and writing files to disk.
 
-const { app, BrowserWindow, Menu, nativeTheme, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, nativeTheme, ipcMain, dialog, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { cookiePersistDetails } = require('../shared/session-cookies');
+const { realisticUserAgent, defaultHeaders } = require('../shared/stealth');
 
 const isDev = process.argv.includes('--dev');
+
+// A clean desktop-Chrome User-Agent (no "Electron/…" / app-name tokens), so
+// bot-protection (Cloudflare, etc.) doesn't block us on sight. Derived from
+// Electron's own default UA, so it keeps the real platform + Chromium version.
+const STEALTH_UA = realisticUserAgent(app.userAgentFallback);
+// Make it the default for EVERY web page / <webview>, including ones created
+// before a window exists.
+app.userAgentFallback = STEALTH_UA;
+
+// Keep sign-ins — including 2FA "remember this device" — across restarts. Sites
+// store that token in a SESSION cookie (no expiry), which Chromium drops on quit.
+// We re-write each session cookie as a long-lived persistent one so it's written
+// to disk and still there next launch (what a browser does via session restore).
+// Applied to every session, so each job's persist:<id> partition benefits.
+function keepSessionCookies(ses) {
+  if (!ses || ses.__cookiePersist) return;
+  ses.__cookiePersist = true;
+  ses.cookies.on('changed', (_event, cookie, _cause, removed) => {
+    if (removed) return;
+    const details = cookiePersistDetails(cookie); // null unless it's a session cookie
+    if (!details) return;
+    // Re-setting with an expiry makes it persistent; the resulting cookie is no
+    // longer a session cookie, so this doesn't loop.
+    ses.cookies.set(details).catch(() => {});
+  });
+}
+
+// Make each session look like a normal browser: the clean UA, plus the request
+// headers a real Chrome sends. Applied to the default session and every job's
+// persist:<id> partition as it's created.
+function hardenSession(ses) {
+  if (!ses || ses.__hardened) return;
+  ses.__hardened = true;
+  try {
+    ses.setUserAgent(STEALTH_UA, 'en-GB');
+  } catch (_) {}
+  try {
+    const extra = defaultHeaders('en-GB,en;q=0.9');
+    ses.webRequest.onBeforeSendHeaders((details, cb) => {
+      const h = details.requestHeaders;
+      // Never override the Electron "Electron" token if it somehow reappears.
+      if (/Electron|scrape-?studio/i.test(h['User-Agent'] || '')) h['User-Agent'] = STEALTH_UA;
+      for (const k of Object.keys(extra)) {
+        if (h[k] == null) h[k] = extra[k]; // fill in without clobbering real values
+      }
+      cb({ requestHeaders: h });
+    });
+  } catch (_) {}
+}
+
+// Fires for the default session and every partition session as it's created.
+app.on('session-created', (ses) => {
+  keepSessionCookies(ses);
+  hardenSession(ses);
+});
 
 // Application menu with a View menu for switching the theme.
 function buildMenu(win) {
@@ -91,35 +148,52 @@ app.on('window-all-closed', () => {
 
 // --- IPC: save CSV to disk via a native dialog -----------------------------
 
-ipcMain.handle('save-csv', async (_event, { defaultName, contents }) => {
+// Encode CSV text to bytes for the chosen encoding. Excel on Windows needs the
+// BOM to read UTF-8 correctly (£ / accents), so 'utf8bom' is the default.
+function encodeCsv(text, encoding) {
+  const s = String(text == null ? '' : text);
+  if (encoding === 'utf16le') {
+    return Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(s, 'utf16le')]); // LE BOM
+  }
+  if (encoding === 'utf8') {
+    return Buffer.from(s, 'utf8'); // no BOM
+  }
+  // Default: UTF-8 with BOM — the reliable "opens cleanly in Excel" choice.
+  return Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(s, 'utf8')]);
+}
+
+ipcMain.handle('save-csv', async (_event, { defaultName, contents, encoding }) => {
   const { canceled, filePath } = await dialog.showSaveDialog({
     title: 'Export CSV',
     defaultPath: defaultName || 'webharvest-export.csv',
     filters: [{ name: 'CSV', extensions: ['csv'] }]
   });
   if (canceled || !filePath) return { saved: false };
-  fs.writeFileSync(filePath, contents, 'utf8');
+  fs.writeFileSync(filePath, encodeCsv(contents, encoding));
   return { saved: true, filePath };
 });
 
-// --- IPC: save / load a scrape "recipe" (the list of steps) ----------------
+// --- IPC: export / import a portable "job" file (.job — JSON inside) --------
+// A .job bundles the whole scrape (steps, start URL, column shaping, sign-in
+// config) so it can be shared or backed up and re-imported anywhere.
 
-ipcMain.handle('save-recipe', async (_event, { defaultName, json }) => {
+ipcMain.handle('export-job', async (_event, { defaultName, json }) => {
   const { canceled, filePath } = await dialog.showSaveDialog({
-    title: 'Save recipe',
-    defaultPath: defaultName || 'recipe.json',
-    filters: [{ name: 'JSON', extensions: ['json'] }]
+    title: 'Export job',
+    defaultPath: defaultName || 'scrape.job',
+    filters: [{ name: 'Scrape Studio job', extensions: ['job'] }, { name: 'JSON', extensions: ['json'] }]
   });
   if (canceled || !filePath) return { saved: false };
   fs.writeFileSync(filePath, json, 'utf8');
   return { saved: true, filePath };
 });
 
-ipcMain.handle('load-recipe', async () => {
+ipcMain.handle('import-job', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
-    title: 'Load recipe',
+    title: 'Import job',
     properties: ['openFile'],
-    filters: [{ name: 'JSON', extensions: ['json'] }]
+    // Accept .job (new) and .json (old exports) so nothing breaks.
+    filters: [{ name: 'Scrape Studio job', extensions: ['job', 'json'] }]
   });
   if (canceled || !filePaths.length) return { loaded: false };
   const json = fs.readFileSync(filePaths[0], 'utf8');
@@ -182,4 +256,57 @@ ipcMain.handle('jobs:delete', (_e, id) => {
   const p = path.join(jobsDir(), sid + '.json');
   if (fs.existsSync(p)) fs.unlinkSync(p);
   return true;
+});
+
+// --- IPC: reusable "task" library ------------------------------------------
+// A saved task is a named, self-contained step subtree (usually a Task/group)
+// the user can drop into any job. Stored as JSON files under userData/tasks.
+
+function tasksDir() {
+  const dir = path.join(app.getPath('userData'), 'tasks');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+ipcMain.handle('tasks:list', () => {
+  const dir = tasksDir();
+  const out = [];
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.endsWith('.json')) continue;
+    try {
+      const t = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+      out.push(t);
+    } catch (_) {}
+  }
+  out.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  return out;
+});
+
+ipcMain.handle('tasks:save', (_e, task) => {
+  const sid = task && safeId(task.id);
+  if (!sid) return false;
+  fs.writeFileSync(path.join(tasksDir(), sid + '.json'), JSON.stringify(task, null, 2), 'utf8');
+  return true;
+});
+
+ipcMain.handle('tasks:delete', (_e, id) => {
+  const sid = safeId(id);
+  if (!sid) return false;
+  const p = path.join(tasksDir(), sid + '.json');
+  if (fs.existsSync(p)) fs.unlinkSync(p);
+  return true;
+});
+
+// --- IPC: forget a job's saved sign-in (clear its browser session) ---------
+// Each job runs in its own persistent <webview> partition ("persist:<jobId>"),
+// so a login done once survives restarts. This wipes that partition's cookies /
+// storage so the user can sign out or switch accounts.
+ipcMain.handle('auth:clear', async (_e, partition) => {
+  if (!partition || typeof partition !== 'string' || !partition.startsWith('persist:')) return false;
+  try {
+    await session.fromPartition(partition).clearStorageData();
+    return true;
+  } catch (_) {
+    return false;
+  }
 });

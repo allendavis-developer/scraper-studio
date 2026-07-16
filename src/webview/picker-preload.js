@@ -218,7 +218,7 @@ function ensureOverlay() {
   document.documentElement.appendChild(label);
 }
 
-function moveOverlay(el) {
+function moveOverlay(el, text) {
   const r = el.getBoundingClientRect();
   overlay.style.display = 'block';
   overlay.style.left = r.left + 'px';
@@ -227,7 +227,7 @@ function moveOverlay(el) {
   overlay.style.height = r.height + 'px';
 
   label.style.display = 'block';
-  label.textContent = cssPath(el);
+  label.textContent = text || cssPath(el);
   const top = r.top - 22 < 0 ? r.bottom + 4 : r.top - 22;
   label.style.left = Math.max(0, r.left) + 'px';
   label.style.top = top + 'px';
@@ -238,10 +238,39 @@ function hideOverlay() {
   if (label) label.style.display = 'none';
 }
 
+// In "table" mode you are choosing a TABLE, not a cell — so highlight the whole
+// table under the cursor. Anything not in a table simply isn't a target.
+function tableUnder(el) {
+  return el && el.closest ? el.closest('table') : null;
+}
+
+// A friendly label for a whole-table highlight: "Table · 9 rows × 7 columns".
+function tableLabel(table) {
+  const body = table.querySelectorAll('tbody tr').length || table.querySelectorAll('tr').length;
+  const head = table.querySelectorAll('thead th, thead td');
+  const first = table.querySelector('tr');
+  const cols = head.length || (first ? first.children.length : 0);
+  return `📊 This table — ${body} row${body === 1 ? '' : 's'} × ${cols} column${cols === 1 ? '' : 's'}`;
+}
+
 function onMove(e) {
   if (!active) return;
   const el = deepElementFromPoint(e.clientX, e.clientY);
   if (!el || el === overlay || el === label) return;
+
+  if (mode === 'table') {
+    const table = tableUnder(el);
+    if (!table) {
+      // Not over a table: make that obvious rather than highlighting a stray cell.
+      lastEl = null;
+      hideOverlay();
+      return;
+    }
+    lastEl = table;
+    moveOverlay(table, tableLabel(table));
+    return;
+  }
+
   lastEl = el;
   moveOverlay(el);
 }
@@ -250,8 +279,23 @@ function onClick(e) {
   if (!active) return;
   e.preventDefault();
   e.stopPropagation();
-  const el = lastEl || deepElementFromPoint(e.clientX, e.clientY);
+  let el = lastEl || deepElementFromPoint(e.clientX, e.clientY);
   if (!el) return;
+
+  // Picking a TABLE: hand back the table element itself (not the cell you
+  // happened to click). Clicking outside any table does nothing — the user can
+  // keep moving, or press Esc.
+  if (mode === 'table') {
+    const table = tableUnder(el);
+    if (!table) return; // stay in pick mode; nothing was highlighted anyway
+    ipcRenderer.sendToHost('picker:picked', {
+      mode,
+      selector: cssPath(table),
+      sample: sampleText(table.querySelector('caption') || table.querySelector('th') || table)
+    });
+    stop();
+    return;
+  }
 
   // `relativeTo` is set for a column pick inside a row, and for ANY pick made
   // while editing a step nested in a "For each" — the selector must then be

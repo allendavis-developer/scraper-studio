@@ -60,6 +60,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await waitUrl('page.html');
     await sleep(600);
   }
+  // Steps are added from the single "＋ Add step" directory (the old wall of
+  // palette buttons is gone), so every test goes through it, like a user would.
+  async function addStepViaDirectory(type) {
+    await R(() => document.getElementById('add-step').click());
+    await sleep(60);
+    await R((t) => {
+      const b = document.querySelector(`#addstep-body [data-add="${t}"]`);
+      if (!b) throw new Error('no directory entry for step type: ' + t);
+      b.click();
+    }, type);
+    await sleep(120);
+  }
   async function clearSteps() {
     await R(() => {
       let b;
@@ -127,7 +139,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // ---- picker used from INSIDE a step editor ------------------------
     console.log('\n[1] picker from inside a step editor (editor hides, then reopens filled)');
     await clearSteps();
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
+    await addStepViaDirectory('get');
     await sleep(150);
     await R(() => document.querySelector('#modal-body .mini-pick').click()); // click Pick
     await sleep(250);
@@ -140,14 +152,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     await simulateGuestClick('.item .price');
     await sleep(400);
-    // A single-element pick where the generalized selector matches many shows a
-    // "which element(s)?" chooser. Verify it, then choose "Any matching (first)".
+    // A single-element pick where the generalized selector matches many shows the
+    // "you clicked one of N similar things" chooser. It must describe the OUTCOME
+    // ("All 3 like it" / "Only the one I clicked"), not the selector. Take "all".
     const chooser = await R(() => {
       const c = document.querySelector('.choice');
       return c ? c.textContent : null;
     });
-    check('post-pick chooser offers exact vs any-matching', chooser && /Any matching/.test(chooser), chooser);
-    await R(() => [...document.querySelectorAll('.choice button')].find((b) => /Any matching/.test(b.textContent)).click());
+    check('the post-pick chooser explains the outcome (all of them vs just this one)',
+      chooser && /All 3 like it/.test(chooser) && /Only the one I clicked/.test(chooser), chooser);
+    await R(() => [...document.querySelectorAll('.choice button')].find((b) => /All \d+ like it/.test(b.textContent)).click());
     await sleep(300);
     const after = await R(() => {
       const open = !document.getElementById('modal').classList.contains('hidden');
@@ -162,7 +176,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // ---- Esc cancels a pick, closes the editor, discards the step -----
     console.log('\n[2] Esc cancels the pick, discards the step, back to normal');
     await clearSteps();
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
+    await addStepViaDirectory('get');
     await sleep(150);
     await R(() => document.querySelector('#modal-body .mini-pick').click());
     await sleep(200);
@@ -181,7 +195,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // ---- scrape list + run (from start URL) ---------------------------
     console.log('\n[3] build Scrape-list and Run (run opens the start URL first)');
     await clearSteps();
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="scrapeList"]').click());
+    await addStepViaDirectory('scrapeList');
     await sleep(150);
     await R(() => {
       const rs = document.querySelector('#modal-body .sel-input');
@@ -239,7 +253,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
 
     await runSingle(async () => {
-      await R(() => document.querySelector('#sidebar .step-palette [data-add="select"]').click());
+      await addStepViaDirectory('select');
       await sleep(120);
       await R(() => {
         const sel = document.querySelector('#modal-body .sel-input');
@@ -254,7 +268,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('Select option set <select> to blue', (await G(`document.querySelector('#sel').value`)) === 'blue');
 
     await runSingle(async () => {
-      await R(() => document.querySelector('#sidebar .step-palette [data-add="check"]').click());
+      await addStepViaDirectory('check');
       await sleep(120);
       await R(() => {
         const sel = document.querySelector('#modal-body .sel-input');
@@ -265,7 +279,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('Check step ticked the checkbox', (await G(`document.querySelector('#chk').checked`)) === true);
 
     await runSingle(async () => {
-      await R(() => document.querySelector('#sidebar .step-palette [data-add="hover"]').click());
+      await addStepViaDirectory('hover');
       await sleep(120);
       await R(() => {
         const sel = document.querySelector('#modal-body .sel-input');
@@ -276,7 +290,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('Hover fired mouseenter', (await G(`document.querySelector('#hoverbox').textContent`)).includes('on'));
 
     await runSingle(async () => {
-      await R(() => document.querySelector('#sidebar .step-palette [data-add="clickText"]').click());
+      await addStepViaDirectory('clickText');
       await sleep(120);
       await R(() => {
         const txt = document.querySelector('#modal-body input');
@@ -287,7 +301,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('Click-text clicked the "Beta" item', (await G(`document.querySelector('#status').textContent`)).includes('Beta'));
 
     await runSingle(async () => {
-      await R(() => document.querySelector('#sidebar .step-palette [data-add="type"]').click());
+      await addStepViaDirectory('type');
       await sleep(120);
       await R(() => {
         const sel = document.querySelector('#modal-body .sel-input');
@@ -305,7 +319,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // Framework-controlled input (the Cash Converters bug): the value must
     // survive the component's re-render instead of being cleared.
     await runSingle(async () => {
-      await R(() => document.querySelector('#sidebar .step-palette [data-add="type"]').click());
+      await addStepViaDirectory('type');
       await sleep(120);
       await R(() => {
         const sel = document.querySelector('#modal-body .sel-input');
@@ -381,7 +395,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     console.log('\n[7] dashboard lists jobs and reopening restores them');
     // Give the current job some steps, then open the dashboard.
     await clearSteps();
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="scrapeList"]').click());
+    await addStepViaDirectory('scrapeList');
     await sleep(150);
     await R(() => {
       const rs = document.querySelector('#modal-body .sel-input');
@@ -411,7 +425,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     console.log('\n[8] control flow — working values, if, and nested blocks');
     await clearSteps();
     // Get value: n = how many .item elements (a WORKING value — not a CSV column)
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
+    await addStepViaDirectory('get');
     await sleep(120);
     await R(() => {
       const name = document.querySelector('#modal-body .name-input');
@@ -425,7 +439,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     });
     await R(() => document.getElementById('modal-save').click());
     // if (n is equal to 3) — built with the VISUAL condition builder (no typing operators)
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="if"]').click());
+    await addStepViaDirectory('if');
     await sleep(120);
     await R(() => {
       // left is a DROPDOWN of the values you've grabbed; op defaults to "is equal to"
@@ -439,7 +453,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.querySelector('.add-in-block').click());
     await sleep(200);
     await R(() => {
-      const b = [...document.querySelectorAll('.type-menu button')].find((x) => /Grab a list/.test(x.textContent));
+      const b = [...document.querySelectorAll('#addstep-body .as-item')].find((x) => /Grab a list/.test(x.textContent));
       b.click();
     });
     await sleep(200);
@@ -472,7 +486,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // repeat loop runs its body N times (2 × 3 items = 6 rows)
     await clearSteps();
     await R(() => document.getElementById('clear-results').click());
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="repeat"]').click());
+    await addStepViaDirectory('repeat');
     await sleep(120);
     await R(() => {
       const c = document.querySelector('#modal-body input'); // repeat count
@@ -482,7 +496,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.querySelector('.add-in-block').click());
     await sleep(200);
     await R(() => {
-      const b = [...document.querySelectorAll('.type-menu button')].find((x) => /Grab a list/.test(x.textContent));
+      const b = [...document.querySelectorAll('#addstep-body .as-item')].find((x) => /Grab a list/.test(x.textContent));
       b.click();
     });
     await sleep(200);
@@ -506,7 +520,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await clearSteps();
     await R(() => document.getElementById('clear-results').click());
     await loadFixture();
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="scrapeList"]').click());
+    await addStepViaDirectory('scrapeList');
     await sleep(150);
     // ① Pick the repeating row (list mode) — click near the top of a card
     await R(() => document.querySelectorAll('#modal-body .mini-pick')[0].click());
@@ -562,7 +576,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     console.log('\n[11] expression column tags loop rows (the date-range pattern)');
     await clearSteps();
     await R(() => document.getElementById('clear-results').click());
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="repeat"]').click());
+    await addStepViaDirectory('repeat');
     await sleep(120);
     await R(() => {
       const c = document.querySelector('#modal-body input');
@@ -572,7 +586,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.querySelector('.add-in-block').click());
     await sleep(200);
     await R(() => {
-      const b = [...document.querySelectorAll('.type-menu button')].find((x) => /Grab a list/.test(x.textContent));
+      const b = [...document.querySelectorAll('#addstep-body .as-item')].find((x) => /Grab a list/.test(x.textContent));
       b.click();
     });
     await sleep(200);
@@ -620,7 +634,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await clearSteps();
     await R(() => document.getElementById('clear-results').click());
     // column p = clean number of the first .price ("$10.00" → 10)
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
+    await addStepViaDirectory('get');
     await sleep(120);
     const getDefaults = await R(() => ({
       target: document.querySelector('#modal-body .target-select').value,
@@ -653,7 +667,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.getElementById('clear-results').click());
     await loadFixture();
     // For each  li.item
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="forEach"]').click());
+    await addStepViaDirectory('forEach');
     await sleep(150);
     await R(() => {
       const sel = document.querySelector('#modal-body .sel-input');
@@ -666,7 +680,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       await R(() => document.querySelector('.add-in-block').click());
       await sleep(200);
       await R((lbl) => {
-        const b = [...document.querySelectorAll('.type-menu button')].find((x) => x.textContent.includes(lbl));
+        const b = [...document.querySelectorAll('#addstep-body .as-item')].find((x) => x.textContent.includes(lbl));
         b.click();
       }, matchLabel);
       await sleep(200);
@@ -739,12 +753,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       }, blockLabel);
       await sleep(200);
       await R((lbl) => {
-        [...document.querySelectorAll('.type-menu button')].find((x) => x.textContent.includes(lbl)).click();
+        [...document.querySelectorAll('#addstep-body .as-item')].find((x) => x.textContent.includes(lbl)).click();
       }, typeLabel);
       await sleep(220);
     }
     // For each  li.item
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="forEach"]').click());
+    await addStepViaDirectory('forEach');
     await sleep(150);
     await R(() => {
       const sel = document.querySelector('#modal-body .sel-input');
@@ -869,7 +883,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     // The fixture's .messy reads: "Price: £1,024.50 (inc VAT) · SKU-8871 · Posted on 14 July 2026"
     // Column 1: price   = Text between "£" and "(" → Number   → 1024.5
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
+    await addStepViaDirectory('get');
     await sleep(150);
     await R(() => {
       document.querySelector('#modal-body .target-select').value = 'column';
@@ -898,7 +912,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.getElementById('modal-save').click());
 
     // Column 2: sku = Digits only  → "8871"
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
+    await addStepViaDirectory('get');
     await sleep(150);
     await R(() => {
       document.querySelector('#modal-body .target-select').value = 'column';
@@ -914,7 +928,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.getElementById('modal-save').click());
 
     // Column 3: posted = Text after "Posted on" → Date (day first) → "2026-07-14"
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="get"]').click());
+    await addStepViaDirectory('get');
     await sleep(150);
     await R(() => {
       document.querySelector('#modal-body .target-select').value = 'column';
@@ -947,7 +961,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     console.log('\n[17] per-column clean-ups in Scrape list');
     await clearSteps();
     await R(() => document.getElementById('clear-results').click());
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="scrapeList"]').click());
+    await addStepViaDirectory('scrapeList');
     await sleep(150);
     await R(() => {
       const rs = document.querySelector('#modal-body .sel-input');
@@ -979,7 +993,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => document.getElementById('clear-results').click());
     await loadFixture();
     // For each item: if price >= 200 (never true — they are 10/20/30) → collect
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="forEach"]').click());
+    await addStepViaDirectory('forEach');
     await sleep(150);
     await R(() => {
       const sel = document.querySelector('#modal-body .sel-input');
@@ -1036,20 +1050,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await clearSteps();
     await loadFixture();
 
-    // The empty step list is a "Start here" card, not a blank void.
+    // The empty step list points you at "＋ Add step" rather than being a void.
     const start = await R(() => {
       const c = document.getElementById('steps-empty');
       return {
         visible: !c.classList.contains('hidden'),
-        text: c.textContent.replace(/\s+/g, ' ').trim(),
-        choices: [...c.querySelectorAll('.start-btn')].map((b) => b.dataset.add)
+        text: c.textContent.replace(/\s+/g, ' ').trim()
       };
     });
-    check('the empty step list tells you where to start', start.visible && /Start here/.test(start.text), null);
-    check('…and offers the 3 real choices', JSON.stringify(start.choices) === JSON.stringify(['scrapeList', 'get', 'forEach']), JSON.stringify(start.choices));
+    check('the empty step list tells you where to start',
+      start.visible && /Add step/.test(start.text) && /Record/.test(start.text), start.text);
 
-    // Clicking a start choice adds that step (no hunting in the palette).
-    await R(() => document.querySelector('.start-btn[data-add="scrapeList"]').click());
+    // Adding a step goes through the "＋ Add step" directory.
+    await addStepViaDirectory('scrapeList');
     await sleep(200);
     const openedList = await R(() => document.getElementById('modal-title').textContent);
     check('“A list of things” opens the Grab-a-list editor', /Grab a list/.test(openedList), openedList);
@@ -1093,14 +1106,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     // Grab one value: picking auto-suggests the name, so there's nothing to type.
     await clearSteps();
-    await R(() => document.querySelector('.start-btn[data-add="get"]').click());
+    await addStepViaDirectory('get');
     await sleep(200);
     await R(() => document.querySelector('#modal-body .mini-pick').click());
     await sleep(250);
     await simulateGuestClick('#list li.item .price');
     await sleep(500);
     await R(() => {
-      const b = [...document.querySelectorAll('.choice button')].find((x) => /Any matching/.test(x.textContent));
+      const b = [...document.querySelectorAll('.choice button')].find((x) => /All \d+ like it/.test(x.textContent));
       if (b) b.click();
     });
     await sleep(400);
@@ -1115,7 +1128,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // An If can't point at a value that doesn't exist — you PICK the value from
     // a dropdown of what you've actually grabbed. (A typo'd name is silently
     // false forever, which is the worst failure mode in the app.)
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="if"]').click());
+    await addStepViaDirectory('if');
     await sleep(200);
     const cond = await R(() => {
       const left = document.querySelector('.cond-rule select');
@@ -1132,7 +1145,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     // With nothing grabbed yet, the If tells you to go grab something first.
     await clearSteps();
-    await R(() => document.querySelector('#sidebar .step-palette [data-add="if"]').click());
+    await addStepViaDirectory('if');
     await sleep(200);
     const noVals = await R(() => {
       const w = document.querySelector('#modal-body .warn-box');

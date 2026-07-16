@@ -127,6 +127,156 @@
     }
   }
 
+  // ---- Tables: the one shape a picker can't guess ---------------------------
+  //
+  // An HTML table is a scrape that's already been done for you: the <th>s name
+  // the columns and the <td>s line them up. But a generic element picker is
+  // hopeless on one — clicking a row generalizes to `tr` (which swallows the
+  // HEADER row) and clicking a cell gives `tr > td` (every cell in the page).
+  //
+  // So when a pick lands anywhere inside a <table>, we read the table's own
+  // structure instead of guessing: real body rows, one column per header, and a
+  // flag for the rows that are obviously summaries (Subtotal / Total).
+
+  const HEADERISH = 'total|totals|sum|subtotal|grand|footer|summary';
+
+  function slugify(text, i) {
+    let s = (text || '').trim().toLowerCase();
+    s = s.replace(/[^a-z0-9]+/g, ' ').trim(); // "Margin %" -> "margin"
+    if (!s) return 'col' + (i + 1);
+    const parts = s.split(' ');
+    return (
+      parts[0] +
+      parts
+        .slice(1)
+        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+        .join('')
+    );
+  }
+
+  // Does this column's data look numeric (money, percent, plain numbers)?
+  function looksNumeric(cells) {
+    const seen = cells.map((c) => (c ? (c.innerText || c.textContent || '').trim() : '')).filter(Boolean);
+    if (!seen.length) return false;
+    const numeric = seen.filter((t) => /^[^\w]*-?[\d.,]+\s*%?$/.test(t) || /^[£$€]\s*-?[\d.,]+/.test(t));
+    return numeric.length >= Math.ceil(seen.length * 0.6);
+  }
+
+  // Given ANY element inside a table (a row, a cell, the table itself), describe
+  // the whole table: how to select its data rows, and one column per header.
+  function tableInfo(el) {
+    if (!(el instanceof Element)) return null;
+    const table = el.closest('table');
+    if (!table) return null;
+
+    const tableSel = cssPath(table);
+
+    // Body rows = <tbody> rows if present, otherwise every row that isn't the
+    // header (a row made of <th>s).
+    const hasTbody = !!table.querySelector('tbody tr');
+    const rowPart = hasTbody ? 'tbody tr' : 'tr';
+    let rows = Array.from(table.querySelectorAll(rowPart));
+    if (!hasTbody) rows = rows.filter((r) => !r.querySelector('th'));
+    if (!rows.length) return null;
+
+    // Header names: <thead> cells, else the first row's <th>s.
+    let heads = Array.from(table.querySelectorAll('thead th, thead td'));
+    if (!heads.length) {
+      const first = table.querySelector('tr');
+      if (first && first.querySelector('th')) heads = Array.from(first.children);
+    }
+
+    // Column count from the widest body row (headers can be missing/merged).
+    const width = rows.reduce((m, r) => Math.max(m, r.children.length), 0);
+    if (!width) return null;
+
+    const columns = [];
+    for (let i = 0; i < width; i++) {
+      const head = heads[i];
+      const label = head ? (head.innerText || head.textContent || '').trim() : '';
+      const name = slugify(label, i);
+      const cells = rows.slice(0, 8).map((r) => r.children[i]);
+      // Is every sampled cell in this column empty? A column with NO header and
+      // NO data is a spacer (a stray/colspan cell that pushed the row width out) —
+      // the app defaults those OFF so "col6/col7" junk never reaches the CSV.
+      const blank = cells.every((c) => !c || !(c.innerText || c.textContent || '').trim());
+      columns.push({
+        name,
+        label,
+        selector: 'td:nth-child(' + (i + 1) + ')',
+        numeric: looksNumeric(cells),
+        blank
+      });
+    }
+
+    // Summary rows: a class shared by SOME (not all) rows whose name reads like
+    // a total — e.g. <tr class="total">. Also catch rows whose first cell says so.
+    const counts = {};
+    for (const r of rows) r.classList.forEach((c) => (counts[c] = (counts[c] || 0) + 1));
+    const summaryClass = Object.keys(counts).find(
+      (c) => new RegExp(HEADERISH, 'i').test(c) && counts[c] < rows.length
+    );
+    const summaryRows = summaryClass
+      ? counts[summaryClass]
+      : rows.filter((r) => {
+          const t = r.children[0];
+          return t && new RegExp('^(' + HEADERISH + ')\\b', 'i').test((t.innerText || '').trim());
+        }).length;
+
+    // WHICH table did they click? A page can have many. The selector above is
+    // unique to this one, but the user needs to SEE that it's the right one — so
+    // name it (its <caption>, or the nearest heading above it) and say where it
+    // sits among the page's tables.
+    const all = Array.from(document.querySelectorAll('table'));
+    const index = all.indexOf(table) + 1;
+
+    let title = '';
+    const cap = table.querySelector('caption');
+    if (cap) title = (cap.innerText || cap.textContent || '').trim();
+    if (!title) {
+      // Walk backwards through the document for the closest preceding heading.
+      const heads = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+      for (let i = heads.length - 1; i >= 0; i--) {
+        const h = heads[i];
+        if (h.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING) {
+          title = (h.innerText || h.textContent || '').trim();
+          break;
+        }
+      }
+    }
+
+    return {
+      isTable: true,
+      rowSelector: tableSel + ' ' + rowPart,
+      rowSelectorNoTotals: summaryClass ? tableSel + ' ' + rowPart + ':not(.' + summaryClass + ')' : '',
+      summaryClass: summaryClass || '',
+      summaryRows,
+      rowCount: rows.length,
+      columns,
+      title: title.slice(0, 60),
+      tableIndex: index,
+      tableCount: all.length
+    };
+  }
+
+  // Code-builder form: run tableInfo inside the page for an already-picked
+  // selector. tableInfo leans on cssPath/slugify/looksNumeric, so we ship those
+  // along with it — the page has no access to this module's scope.
+  function tableInfoExpr(selector) {
+    return `(() => {
+      const HEADERISH = ${J(HEADERISH)};
+      const isStableClass = ${isStableClass.toString()};
+      const classSelector = ${classSelector.toString()};
+      const indexOfType = ${indexOfType.toString()};
+      const cssPath = ${cssPath.toString()};
+      const slugify = ${slugify.toString()};
+      const looksNumeric = ${looksNumeric.toString()};
+      const tableInfo = ${tableInfo.toString()};
+      const el = document.querySelector(${J(selector)});
+      return el ? tableInfo(el) : null;
+    })()`;
+  }
+
   // ---- Extraction (code builders) -----------------------------------------
 
   // A statement (ending in `return …`) that extracts a value from element `v`.
@@ -171,6 +321,70 @@
     })()`;
   }
 
+  // Filter a repeating selector's matches by rules on each element's text /
+  // attribute / number. Returns which matches pass (their indices), the totals,
+  // and a few samples — powering "For each … where …" plus its live preview.
+  //
+  // A rule: { test:'text'|'attr'|'number', attr, op, value }. `match` is 'all' or
+  // 'any'. Empty rules → everything passes. Runs entirely in the page (self-
+  // contained: no module scope) so it can be shipped via executeJavaScript.
+  function elementFilterExpr(selector, filter) {
+    return `(() => {
+      const nodes = Array.from(document.querySelectorAll(${J(selector)}));
+      const filter = ${JSON.stringify(filter || null)};
+      const norm = s => (s == null ? '' : String(s)).replace(/\\s+/g,' ').trim();
+      const numOf = s => { const m = String(s == null ? '' : s).match(/-?[0-9][0-9.,]*/); return m ? parseFloat(m[0].replace(/,/g,'')) : NaN; };
+      const active = filter && Array.isArray(filter.rules)
+        ? filter.rules.filter(r => r && (String(r.value != null ? r.value : '').trim() !== '' || r.op === 'empty' || r.op === 'nempty'))
+        : [];
+      function fieldRaw(el, rule) {
+        if (rule.test === 'attr') return el.getAttribute(rule.attr || '') || '';
+        return norm(el.innerText || el.textContent);
+      }
+      function testRule(el, rule) {
+        const raw = fieldRaw(el, rule);
+        const op = rule.op;
+        const want = rule.value == null ? '' : String(rule.value);
+        if (op === 'empty') return norm(raw) === '';
+        if (op === 'nempty') return norm(raw) !== '';
+        if (rule.test === 'number' || op === 'gt' || op === 'ge' || op === 'lt' || op === 'le') {
+          const a = numOf(raw), b = parseFloat(String(want).replace(/,/g,''));
+          if (op === 'gt') return a > b;
+          if (op === 'ge') return a >= b;
+          if (op === 'lt') return a < b;
+          if (op === 'le') return a <= b;
+          if (op === 'eq') return a === b;
+          if (op === 'ne') return a !== b;
+        }
+        const s = raw.toLowerCase(), w = want.toLowerCase();
+        switch (op) {
+          case 'contains': return s.indexOf(w) >= 0;
+          case 'ncontains': return s.indexOf(w) < 0;
+          case 'eq': return s === w;
+          case 'ne': return s !== w;
+          case 'startsWith': return s.lastIndexOf(w, 0) === 0;
+          case 'endsWith': return w === '' || s.slice(-w.length) === w;
+          case 'matches': try { return new RegExp(want).test(raw); } catch (_) { return false; }
+          default: return true;
+        }
+      }
+      function pass(el) {
+        if (!active.length) return true;
+        const rs = active.map(r => testRule(el, r));
+        return filter.match === 'any' ? rs.some(Boolean) : rs.every(Boolean);
+      }
+      const kept = [];
+      const samples = [];
+      nodes.forEach((el, i) => {
+        if (pass(el)) {
+          kept.push(i);
+          if (samples.length < 12) samples.push({ i, text: norm(el.innerText || el.textContent).slice(0, 90) });
+        }
+      });
+      return { total: nodes.length, matched: kept.length, kept, samples, filtered: active.length > 0 };
+    })()`;
+  }
+
   // ---- Action builders (return {ok, ...}) ---------------------------------
 
   function clickExpr(selector) {
@@ -196,7 +410,17 @@
         const t = norm(n.textContent);
         return ${mode === 'contains' ? 't.includes(want)' : 't === want'};
       });
-      hits.sort((a,b) => a.textContent.length - b.textContent.length); // most specific first
+      // Prefer the actually-clickable element on a tie. A "VIEW" link sits inside
+      // a <td> that shares its text; clicking the <td> does nothing, so a link /
+      // button / [role=button] with the same label must win over its container.
+      const clickable = (n) => {
+        const tg = n.tagName;
+        if (tg === 'A' || tg === 'BUTTON') return true;
+        if (n.getAttribute && (n.getAttribute('role') === 'button' || n.hasAttribute('onclick'))) return true;
+        if (tg === 'INPUT') { const t = (n.getAttribute('type')||'').toLowerCase(); return t === 'submit' || t === 'button'; }
+        return false;
+      };
+      hits.sort((a, b) => (clickable(b) - clickable(a)) || (a.textContent.length - b.textContent.length));
       const el = hits[0];
       if (!el) return { ok:false, err:'no text match for "'+want+'"' };
       el.scrollIntoView({ block:'center' });
@@ -301,6 +525,48 @@
     return `!!document.querySelector(${J(selector)})`;
   }
 
+  // What would you most likely want OFF this element? A form field's value lives
+  // in .value (its text is empty) — the #1 "why is it 0/blank?" gotcha — so we
+  // suggest the right source instead of the generic "text". Returns e.g.
+  // { source:'value', tag:'input', type:'date', strong:true }.
+  function suggestSourceExpr(selector) {
+    return `(() => {
+      const el = document.querySelector(${J(selector)});
+      if (!el) return null;
+      const tag = el.tagName.toLowerCase();
+      const type = (el.getAttribute('type') || '').toLowerCase();
+      let source = 'text', strong = false;
+      if (tag === 'input') {
+        if (type === 'checkbox' || type === 'radio') { source = 'checked'; }
+        else { source = 'value'; }
+        strong = true;
+      } else if (tag === 'textarea' || tag === 'select') {
+        source = 'value'; strong = true;
+      } else if (tag === 'img') {
+        source = 'src'; strong = true;
+      }
+      return { source, tag, type, strong };
+    })()`;
+  }
+
+  // Does a piece of TEXT appear on the page (optionally only within a container)?
+  // Great for "did my save actually work?" — check for a confirmation message
+  // without needing a selector for it. mode = 'contains' | 'exact'. Returns a
+  // boolean. Matching is whitespace-normalized; 'contains' is case-insensitive.
+  function textExistsExpr(text, container, mode) {
+    return `(() => {
+      const scope = ${container ? `document.querySelector(${J(container)})` : 'document.body'};
+      if (!scope) return false;
+      const norm = s => (s == null ? '' : String(s)).replace(/\\s+/g,' ').trim();
+      const hay = norm(scope.innerText || scope.textContent);
+      const want = norm(${J(text)});
+      if (!want) return false;
+      return ${mode === 'exact'
+        ? 'hay === want'
+        : 'hay.toLowerCase().indexOf(want.toLowerCase()) >= 0'};
+    })()`;
+  }
+
   function scrollExpr(mode, px) {
     if (mode === 'top') return 'window.scrollTo(0, 0)';
     if (mode === 'by') return `window.scrollBy(0, ${Number(px) || 0})`;
@@ -322,10 +588,13 @@
     deepElementFromPoint,
     sampleText,
     safeCount,
+    tableInfo,
+    tableInfoExpr,
     // code builders
     extractStmt,
     extractExpr,
     listExpr,
+    elementFilterExpr,
     clickExpr,
     clickTextExpr,
     fillExpr,
@@ -334,6 +603,8 @@
     hoverExpr,
     readOptionsExpr,
     existsExpr,
+    textExistsExpr,
+    suggestSourceExpr,
     scrollExpr
   };
 });

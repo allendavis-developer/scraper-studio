@@ -26,90 +26,70 @@
         </div>
       </header>
 
-      <div class="panel">
-        <div class="panel-title">Job start URL</div>
-        <input id="start-url" placeholder="https://..." spellcheck="false" />
-        <button id="use-current" class="wide" title="Copy the browser's current address">⤒ Use current page</button>
-        <div class="hint-sm">Every run opens this URL first.</div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-title">Add step</div>
-
-        <div class="palette-sub first">Get the data</div>
-        <div class="step-palette" id="palette">
-          <button data-add="scrapeList" class="key-step" title="A repeating list (products, search results, table rows) → many rows at once">📋 Grab a list</button>
-          <button data-add="get" class="key-step" title="One value from the page → a named column">📥 Grab one value</button>
-        </div>
-
-        <div class="palette-sub">Do something on the page</div>
-        <div class="step-palette" id="palette-actions">
-          <button data-add="click" title="Click an element">🖱️ Click</button>
-          <button data-add="type" title="Fill / type into a field (text, date, number)">⌨️ Fill field</button>
-          <button data-add="clickText" title="Click element by its text (calendar day, dropdown option, tab)">🔤 Click text</button>
-          <button data-add="select" title="Choose an option in a native dropdown">🔽 Select option</button>
-          <button data-add="check" title="Check / uncheck a checkbox or radio">☑️ Check</button>
-          <button data-add="hover" title="Hover to reveal menus / tooltips">👆 Hover</button>
-          <button data-add="key" title="Press a key (Enter, Tab, arrows…)">⌨ Press key</button>
-          <button data-add="scroll" title="Scroll the page">↕️ Scroll</button>
-          <button data-add="waitFor" title="Wait until an element appears (or disappears)">👁️ Wait for</button>
-          <button data-add="wait" title="Pause for a fixed time">⏱️ Delay</button>
-          <button data-add="loadAll" title="Auto-scroll (and click ‘load more’) until everything is loaded">⤓ Load all</button>
-          <button data-add="goto" title="Navigate to a URL (supports {{variables}})">🌐 Go to URL</button>
-          <button data-add="back" title="Go back to the previous page">⬅️ Go back</button>
-        </div>
-
-        <div class="palette-sub">Repeat &amp; decide</div>
-        <div class="step-palette" id="palette-logic">
-          <button data-add="forEach" title="Run a block once for every matching item — each pass makes a row">🔄 For each</button>
-          <button data-add="if" title="Run a block only if a condition is true">❓ If / Else</button>
-          <button data-add="skip" title="Skip this item — no row for it, move on to the next one">⏭ Skip item</button>
-          <button data-add="while" title="Repeat a block while a condition holds">🔁 While</button>
-          <button data-add="repeat" title="Repeat a block a number of times">🔢 Repeat</button>
-          <button data-add="break" title="Exit the current loop entirely">⛔ Break</button>
+      <div class="panel job-bar">
+        <div class="jb-row">
+          <input id="start-url" placeholder="Start URL — opened at every run" spellcheck="false" />
+          <button id="use-current" title="Use the browser's current address">⤒</button>
         </div>
       </div>
+
+      <details class="panel signin">
+        <summary>🔐 <span>Sign-in</span> <span class="muted">— log in once, remembered</span></summary>
+        <div class="signin-body">
+          <label class="mini-label">Does this site need a login?</label>
+          <select id="auth-mode">
+            <option value="auto">Auto — only stop if the site sends me to a login page</option>
+            <option value="never">No — it's public, never check (don't get in my way)</option>
+            <option value="always">Yes — always make sure I'm signed in first</option>
+          </select>
+          <div id="auth-never-note" class="hint-sm hidden">
+            ✓ Login checks are OFF for this job — runs won't be paused for sign-in.
+          </div>
+          <div class="hint-sm">
+            Needs a login? Just <b>sign in once</b> in the browser → (2FA included).
+            It's remembered across restarts and reused every run — no setup needed.
+          </div>
+          <button id="auth-login" class="wide" title="Open this job's browser so you can sign in (goes to the login page if you set one, otherwise the start page)">🔓 Log in to this site</button>
+          <button id="auth-forget" class="wide" title="Clear this job's saved cookies / session (sign out / switch account)">Forget this sign-in</button>
+          <details class="auth-adv">
+            <summary>Notice when I get signed out (optional)</summary>
+            <div class="hint-sm">
+              Point at something only shown when you're logged in (your account menu,
+              a “Log out” link). Each run checks it first; if it's gone, the run
+              pauses so you can log back in — instead of scraping nothing.
+            </div>
+            <label class="mini-label">“Signed-in” marker</label>
+            <span class="input-with-pick">
+              <input id="auth-check" class="sel-input" placeholder="press Pick, then click e.g. your account menu" spellcheck="false" />
+              <button class="mini-pick pick-btn" data-pick-into="auth-check">⊕ Pick</button>
+            </span>
+            <div class="hint-sm">
+              Leave blank if this job signs in with its <b>own steps</b> — otherwise
+              the check would block its login.
+            </div>
+            <label class="mini-label">Login page (optional)</label>
+            <input id="auth-login-url" placeholder="defaults to the start URL" spellcheck="false" />
+            <div class="hint-sm">Where “Log in to this site” opens. Blank = the start URL.</div>
+          </details>
+        </div>
+      </details>
 
       <div class="panel grow">
-        <div class="panel-title">
-          Steps <span id="step-count" class="muted"></span>
+        <div class="panel-title steps-title">
+          <span>Steps <span id="step-count" class="muted"></span></span>
+          <button id="open-map" class="map-btn" title="See the whole program as a flowchart (control flow + data flow)">🗺 Map</button>
         </div>
-        <div id="steps-empty" class="start-card">
-          <div class="start-title">Start here — what do you want off this page?</div>
-          <button class="start-btn" data-add="scrapeList">
-            <span class="sb-icon">📋</span>
-            <span class="sb-text">
-              <b>A list of things</b>
-              <i>products, search results, table rows — many rows at once</i>
-            </span>
-          </button>
-          <button class="start-btn" data-add="get">
-            <span class="sb-icon">📥</span>
-            <span class="sb-text">
-              <b>Just one value</b>
-              <i>a price, a title, a total</i>
-            </span>
-          </button>
-          <button class="start-btn" data-add="forEach">
-            <span class="sb-icon">🔄</span>
-            <span class="sb-text">
-              <b>A list, with a rule per item</b>
-              <i>only the ones under £200 · open each one’s page</i>
-            </span>
-          </button>
-          <div class="start-foot">
-            Need to search or log in first? Do it in the browser →, or press
-            <b>● Record</b> and just do it — your clicks become steps.
-          </div>
+        <button id="add-step" class="add-step-btn primary" title="Add a step to your program">＋ Add step</button>
+        <div id="steps-empty" class="empty-hint">
+          No steps yet — press <b>＋ Add step</b> to build your scrape, or
+          <b>● Record</b> and just do it in the browser →.
         </div>
         <ol id="steps" class="steps"></ol>
       </div>
 
       <div class="toolbar">
-        <button id="run" class="primary">▶ Run</button>
-        <button id="stop" class="danger" disabled>■ Stop</button>
-        <button id="save-recipe">💾</button>
-        <button id="load-recipe">📂</button>
+        <button id="export-job" class="wide" title="Export this whole scrape as a portable .job file">💾 Export job</button>
+        <button id="import-job" class="wide" title="Import a .job file into this workspace">📂 Import job</button>
       </div>
     </aside>
 
@@ -132,6 +112,9 @@
         </div>
         <span class="bar-sep"></span>
         <button id="record" class="rec-btn" title="Record your actions and turn them into steps">● Record</button>
+        <span class="bar-sep"></span>
+        <button id="run" class="run-btn" title="Run this scrape">▶ Run</button>
+        <button id="stop" class="danger" disabled title="Stop the run">■ Stop</button>
       </div>
 
       <div id="webview-wrap">
@@ -145,6 +128,13 @@
           <b>Stop</b>. <span id="rec-count">0 actions</span>
         </div>
         <div id="loading" class="loading hidden"><div class="spinner"></div></div>
+        <div id="auth-banner" class="auth-banner hidden">
+          <div class="ab-text">🔐 <b>Signed out</b> <span id="auth-banner-msg"></span></div>
+          <div class="ab-acts">
+            <button id="auth-banner-login" class="primary">Open login page</button>
+            <button id="auth-banner-dismiss">Dismiss</button>
+          </div>
+        </div>
       </div>
 
       <div id="hsplit" class="hsplit" title="Drag to resize"></div>
@@ -155,6 +145,7 @@
           <div class="spacer"></div>
           <button id="shape-cols" title="Choose, rename and reorder columns for the CSV">⚙ Columns</button>
           <button id="clear-results">Clear</button>
+          <select id="csv-encoding" title="File encoding — UTF-8 (Excel-ready) is best for opening in Excel"></select>
           <button id="export-csv" class="primary" disabled>⬇ Export CSV</button>
         </div>
         <div id="results-table-wrap">
@@ -175,7 +166,7 @@
           <span id="modal-title">Edit step</span>
           <button id="modal-close">✕</button>
         </div>
-        <div id="modal-body"></div>
+        <div id="modal-body" class="modal-scroll"></div>
         <div class="modal-foot">
           <button id="modal-cancel">Cancel</button>
           <button id="modal-save" class="primary">Save step</button>
@@ -201,7 +192,7 @@
     <div id="newjob-modal" class="modal hidden">
       <div class="modal-card">
         <div class="modal-head"><span>New scrape job</span><button id="newjob-close">✕</button></div>
-        <div style="padding: 16px">
+        <div class="modal-scroll" style="padding: 16px">
           <div class="field">
             <label>Job name</label>
             <input id="newjob-name" placeholder="e.g. Cash Converters — laptops" />
@@ -226,11 +217,59 @@
           <span>Shape CSV — choose, rename &amp; reorder columns</span>
           <button id="cols-close">✕</button>
         </div>
-        <div id="cols-body"></div>
+        <div id="cols-body" class="modal-scroll"></div>
         <div class="modal-foot">
           <button id="cols-cancel">Cancel</button>
           <button id="cols-save" class="primary">Apply</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Add-step directory -->
+    <div id="addstep-modal" class="modal hidden">
+      <div class="modal-card addstep-card">
+        <div class="modal-head">
+          <span>Add a step</span>
+          <button id="addstep-close">✕</button>
+        </div>
+        <div id="addstep-body" class="addstep-body modal-scroll"></div>
+      </div>
+    </div>
+
+    <!-- Map view — the whole program as a flowchart -->
+    <div id="map-modal" class="map-modal hidden">
+      <div class="map-head">
+        <div class="map-title"><span class="logo">🗺</span></div>
+        <nav id="map-crumbs" class="map-crumbs"></nav>
+        <div class="map-legend">
+          <span class="lg lg-data">data</span>
+          <span class="lg lg-action">action</span>
+          <span class="lg lg-control">control</span>
+          <span class="lg lg-group">task</span>
+        </div>
+        <div class="map-tools">
+          <button id="map-add" class="primary" title="Add a node to this graph">＋ Node</button>
+          <label class="map-toggle" title="Show which nodes produce values and which consume them">
+            <input type="checkbox" id="map-dataflow" /> Data flow
+          </label>
+          <div class="zoomctl" title="Zoom the map">
+            <button id="map-zoom-out">−</button>
+            <button id="map-zoom-reset" class="zlabel">100%</button>
+            <button id="map-zoom-in">+</button>
+          </div>
+          <button id="map-fit">Fit</button>
+          <button id="map-close">Done</button>
+        </div>
+      </div>
+      <div id="map-canvas" class="map-canvas">
+        <div id="map-empty" class="empty-hint hidden">
+          This graph is empty. Press <b>＋ Node</b> to add the first step.
+        </div>
+      </div>
+      <div class="map-foot">
+        <b>Drag</b> a node to move it · <b>double-click</b> a node to edit it (or open a
+        Task/loop/branch) · drag from a node's <b>right dot ▸ to another's left dot</b> to
+        set the order · drag empty space to pan, scroll to zoom.
       </div>
     </div>
 

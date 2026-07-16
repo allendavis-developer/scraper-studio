@@ -37,6 +37,38 @@ eq('match capture group', Expr.evaluate('match("/product/1234-abc", "/product/([
 eq('test regex', Expr.evaluate('test("SKU-99", "^SKU-")', {}), true);
 eq('regexReplace', Expr.evaluate('regexReplace("a1b2c3", "[0-9]", "")', {}), 'abc');
 
+// --- Table helpers: lookup / sumcol / countrows over a "dataset" ------------
+// A dataset is an array of {column: value} row objects (a grabbed table kept
+// whole). This is what powers click-built Formula "look-up" columns and pivots.
+const SALES = [
+  { user: 'Cerys', total: 110, margin: 40.98 },
+  { user: 'Charlie2', total: 12.99, margin: -105.62 },
+  { user: 'Sobaan', total: 130, margin: 57.14 },
+  { user: 'harmonyA', total: 511, margin: 30.08 }
+];
+const D = { sales: SALES };
+eq('lookup basic', Expr.evaluate('lookup(sales, "user", "Cerys", "total")', D), 110);
+eq('lookup case/space-insensitive key', Expr.evaluate('lookup(sales, "user", " charlie2 ", "total")', D), 12.99);
+eq('lookup miss → ""', Expr.evaluate('lookup(sales, "user", "Nobody", "total")', D), '');
+eq('lookup bad dataset → ""', Expr.evaluate('lookup(missing, "user", "Cerys", "total")', D), '');
+eq('lookup feeds maths', Expr.evaluate('number(lookup(sales, "user", "Sobaan", "total")) + 1', D), 131);
+eq('sumcol total', Expr.evaluate('round(sumcol(sales, "total"), 2)', D), 763.99);
+eq('countrows', Expr.evaluate('countrows(sales)', D), 4);
+
+// --- Dates: rollover-safe maths + formatting --------------------------------
+eq('dateAdd same month', Expr.evaluate('dateAdd("2026-07-07", 3)', {}), '2026-07-10');
+eq('dateAdd month rollover', Expr.evaluate('dateAdd("2026-07-30", 5)', {}), '2026-08-04');
+eq('dateAdd year rollover', Expr.evaluate('dateAdd("2026-12-30", 3)', {}), '2027-01-02');
+eq('dateAdd negative', Expr.evaluate('dateAdd("2026-07-01", -1)', {}), '2026-06-30');
+eq('dateAdd zero normalizes', Expr.evaluate('dateAdd("2026-7-7", 0)', {}), '2026-07-07');
+eq('dateFmt DD/MM/YYYY', Expr.evaluate('dateFmt("2026-07-07", "DD/MM/YYYY")', {}), '07/07/2026');
+eq('dateFmt long', Expr.evaluate('dateFmt("2026-07-07", "D MMM YYYY")', {}), '7 Jul 2026');
+eq('dateFmt month-name has no false M', Expr.evaluate('dateFmt("2026-03-05", "MMMM D")', {}), 'March 5');
+eq('dateDiff whole days', Expr.evaluate('dateDiff("2026-07-01", "2026-07-31")', {}), 30);
+eq('date via DD/MM/YYYY input', Expr.evaluate('dateAdd("07/07/2026", 1)', {}), '2026-07-08');
+eq('direct export dateAdd', Expr.dateAdd('2026-07-07', 1), '2026-07-08');
+eq('today() shape', /^\d{4}-\d{2}-\d{2}$/.test(Expr.today()), true);
+
 eq('interp var', Expr.interpolate('page {{count}} of {{total}}', V), 'page 3 of 10');
 eq('interp expr', Expr.interpolate('next={{count + 1}}', V), 'next=4');
 eq('interp plain', Expr.interpolate('no braces', V), 'no braces');

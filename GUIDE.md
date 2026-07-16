@@ -83,11 +83,49 @@ list, many rows at once. Use it when you don't need per-item logic.
 **Getting data**
 | Step | What it does |
 |------|--------------|
+| 📊 Grab a table | An **HTML table**. Point at it **once** (click any cell) and it does the rest — a column per heading, money/% as numbers, Subtotal/Total rows left out. Then shape it. **See [Scraping a table](#scraping-a-table).** |
 | 📥 Grab one value | Read **one** value into a named **column** (or a working value). Text, a link, an attribute, a count, "does it exist", the page URL, or a calculation. |
-| 📋 Grab a list | Grab a repeating list → **many rows at once**, with columns. |
+| 📋 Grab a list | Grab a repeating list (product cards, search results) → **many rows at once**, with columns you Pick yourself. |
 
-Both can **clean up** the text they find — see
+They can **clean up** the text they find — see
 [Cleaning up messy text](#cleaning-up-messy-text).
+
+---
+
+## Scraping a table
+
+If the thing you want is a real HTML table, **don't** use *Grab a list* — a
+picker can't make sense of a table (clicking a row matches the **header** row
+too; clicking a cell matches every cell on the page). Use **📊 Grab a table**:
+
+1. **＋ Add step → 📊 Grab a table.**
+2. **① Pick the table** → press **Pick**. Now move over the page: **whole tables
+   light up** (with a label — *“📊 This table — 9 rows × 7 columns”*), so there's
+   no doubt what you're about to grab. Click the one you want. That's the only
+   pick you make.
+3. It reads the table itself and fills in:
+   - **every column**, named from the `<th>` headings (`Gross` → `gross`),
+   - **numbers**: money and % columns come out as `511.09` / `45.22`, not text, so
+     they add up in Excel,
+   - **no header row** and — if the table has them — **no Subtotal / Total rows**
+     (untick the box to keep them).
+4. **② Shape the columns**: untick any you don't want, rename them (that's the CSV
+   heading), **↑↓** to reorder, and switch a column between **Text** and **Number**.
+   A **live preview** underneath shows the exact rows you'll get.
+5. **Save step → ▶ Run → ⬇ Export CSV.**
+
+> Blank cells become `0` in a Number column. If you'd rather keep them empty, set
+> that column to **Text**.
+
+**Several tables on the page?** You get **the one you clicked** — nothing else.
+The editor tells you which one it took, by name: *“Got **“Staff”** — table 2 of 3
+on this page. Only this one is scraped.”* Wrong one? Press **Pick** again and
+click a cell in the table you actually want. To scrape **more than one** table,
+add **one “Grab a table” step per table**.
+
+(There's no *“this exact element vs any matching”* prompt on a table — that
+question is meaningless here, since whichever cell you click, you get the table
+it sits in.)
 
 **Logic**
 | Step | What it does |
@@ -231,6 +269,37 @@ then add rules like:
 
 Pick the operator from a dropdown (is equal to, contains, is empty, is true…)
 and your variable from a list. Combine rules with ALL (and) or ANY (or).
+
+---
+
+## Keeping big jobs tidy: Tasks, Try/Recover, and the Map
+
+Small scrapes stay a short list — that's the point. When a job gets bigger,
+three tools keep it readable and robust:
+
+- **📦 Task** — a named folder of steps. Add one, name it (`Log in`,
+  `Extract`, `Export`), and drag steps into it (or use *+ add step*). Click its
+  header to **collapse** it, so a long job reads as a few boxes instead of forty
+  rows. A Task doesn't change anything about how your run works — it's just for
+  tidiness and reuse. Press **☆** on a Task to save it to your **library** and
+  drop it into other jobs from **Your saved tasks** in **＋ Add step**.
+
+- **🛟 Try / Recover** — for the steps that *sometimes* fail (a login, a slow
+  page, a flaky click). Put them under **Try**; if any fails, Scrape Studio runs
+  your **recovery** steps instead of stopping the whole run. Set **retries** to
+  give the risky steps a few more attempts first. Example: *Try to log in,
+  retry twice; if it still fails, ⛔ Break so we give up on this item.*
+
+- **🗺 Map** — press **Map** above the steps to open the **graph editor**: an
+  editable canvas (like Unreal's Blueprints) where you actually *build* the job.
+  **＋ Node** adds a step, **drag** moves it, **double-click** edits it — or, for a
+  Module / loop / branch, **opens its own graph** (the breadcrumb up top walks you
+  back out). Drag from a node's **right dot ▸ to another's left dot** to set the
+  order. Boxes are coloured by what they are (green = grabs data, blue = does
+  something on the page, amber = repeat/decide, violet = Module), and **Data flow**
+  shows which step produces each value and which uses it. The Map and the step
+  list edit the **same** job — so you can name a Module here, open it, and describe
+  it with nodes, then use that Module inside another Module's graph.
 
 ---
 

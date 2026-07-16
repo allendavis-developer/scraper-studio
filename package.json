@@ -6,9 +6,9 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "test": "node test/expr-tests.js && node test/transform-tests.js && node test/scrape-tests.js",
-    "test:ui": "node test/ui-e2e.js && node test/legacy-e2e.js",
-    "test:all": "node test/expr-tests.js && node test/transform-tests.js && node test/scrape-tests.js && node test/ui-e2e.js && node test/legacy-e2e.js"
+    "test": "node test/expr-tests.js && node test/transform-tests.js && node test/scrape-tests.js && node test/session-cookie-tests.js && node test/stealth-tests.js",
+    "test:ui": "node test/ui-e2e.js && node test/legacy-e2e.js && node test/workflow-e2e.js && node test/table-e2e.js && node test/join-e2e.js && node test/cell-e2e.js && node test/pivot-e2e.js && node test/filter-e2e.js && node test/job-io-e2e.js && node test/ua-e2e.js && node test/session-e2e.js",
+    "test:all": "node test/expr-tests.js && node test/transform-tests.js && node test/scrape-tests.js && node test/session-cookie-tests.js && node test/stealth-tests.js && node test/ui-e2e.js && node test/legacy-e2e.js && node test/workflow-e2e.js && node test/table-e2e.js && node test/join-e2e.js && node test/cell-e2e.js && node test/pivot-e2e.js && node test/filter-e2e.js && node test/job-io-e2e.js && node test/ua-e2e.js && node test/session-e2e.js"
   },
   "keywords": [
     "scraper",

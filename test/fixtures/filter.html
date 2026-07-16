@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Filter fixture</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; }
+      .item { padding: 6px 10px; border-bottom: 1px solid #eee; }
+      .name { font-weight: 600; }
+      .price { color: #666; margin-left: 8px; }
+    </style>
+  </head>
+  <body>
+    <h3>Products</h3>
+    <!-- 5 items; 3 mention "Xbox". A "For each … where text contains Xbox" must
+         iterate exactly those 3, in order. -->
+    <ul id="list">
+      <li class="item" data-cat="console"><span class="name">Xbox Series X</span><span class="price">445</span></li>
+      <li class="item" data-cat="game"><span class="name">Xbox Game Pass</span><span class="price">10</span></li>
+      <li class="item" data-cat="console"><span class="name">PlayStation 5</span><span class="price">479</span></li>
+      <li class="item" data-cat="game"><span class="name">Zelda</span><span class="price">50</span></li>
+      <li class="item" data-cat="console"><span class="name">Xbox Controller</span><span class="price">39</span></li>
+    </ul>
+    <!-- A form field: its VALUE holds the text, .innerText is empty — the classic
+         "Grab text → 0/blank" gotcha the source-suggestion fixes. -->
+    <input id="qty" type="number" value="42" />
+    <!-- Appears only after ~700ms — a grab must WAIT for it, not read blank. -->
+    <div id="late-wrap"></div>
+    <script>
+      // A flag the refresh test can check: set now, gone after a reload.
+      window.__loadedOnce = true;
+      setTimeout(() => {
+        const d = document.createElement('div');
+        d.id = 'late';
+        d.textContent = 'Loaded late';
+        document.getElementById('late-wrap').appendChild(d);
+      }, 700);
+    </script>
+  </body>
+</html>

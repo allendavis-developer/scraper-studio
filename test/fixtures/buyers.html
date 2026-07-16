@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Buy-in report</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; }
+      table { border-collapse: collapse; width: 100%; max-width: 700px; }
+      th, td { padding: 8px 12px; border-bottom: 1px solid #eee; text-align: left; }
+    </style>
+  </head>
+  <body>
+    <h1>Who bought each item in</h1>
+    <!-- A separate report, keyed by barserial. Deliberately: BAR005 is absent
+         (its stock row should get a blank look-up), and BAR777 has no stock row
+         (it should be ignored — a left join never invents rows). -->
+    <table class="buyers">
+      <thead>
+        <tr><th>Barserial</th><th>Bought In By</th><th>Supplier</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>BAR001</td><td>Cerys</td><td>Acme Jewellers</td></tr>
+        <tr><td>BAR002</td><td>Sobaan</td><td>Gold Traders Ltd</td></tr>
+        <tr><td>BAR003</td><td>harmonyA</td><td>Acme Jewellers</td></tr>
+        <tr><td>BAR004</td><td>Cerys</td><td>Pawn Partners</td></tr>
+        <tr><td>BAR777</td><td>Nobody</td><td>Ghost Supplier</td></tr>
+      </tbody>
+    </table>
+  </body>
+</html>

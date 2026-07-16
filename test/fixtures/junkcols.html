@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Junk column table</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; }
+      table { border-collapse: collapse; }
+      th, td { padding: 6px 12px; border: 1px solid #ddd; }
+    </style>
+  </head>
+  <body>
+    <h3>Order lines</h3>
+    <!-- 3 real columns (Item, Qty, Price) but every body row carries TWO extra
+         trailing spacer <td>s (layout artefacts). They have no header and no
+         data, so the table reader would name them col4 / col5 — exactly the
+         junk that must NOT reach the CSV. -->
+    <table class="orders">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Qty</th>
+          <th>Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Widget</td><td>2</td><td>£4.50</td><td></td><td></td></tr>
+        <tr><td>Gadget</td><td>1</td><td>£9.99</td><td></td><td></td></tr>
+        <tr><td>Gizmo</td><td>5</td><td>£1.20</td><td></td><td></td></tr>
+      </tbody>
+    </table>
+  </body>
+</html>
