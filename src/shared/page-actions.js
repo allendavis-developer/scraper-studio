@@ -536,6 +536,41 @@
     return `!!document.querySelector(${J(selector)})`;
   }
 
+  // Could a user actually CLICK this element right now? Exists + visible + not
+  // disabled (the `disabled` attribute, `aria-disabled="true"`, a "disabled"
+  // class, or pointer-events:none). This is the codeless "is there a NEXT page?"
+  // test — the user just PICKS the Next button; no `:not(.disabled)` to type.
+  function clickableExpr(selector) {
+    return `(() => {
+      const el = document.querySelector(${J(selector)});
+      if (!el) return false;
+      if (el.disabled === true) return false;
+      if (el.getAttribute('aria-disabled') === 'true') return false;
+      if (/(^|\\s)(disabled|is-disabled)(\\s|$)/i.test(el.getAttribute('class') || '')) return false;
+      if (!el.getClientRects().length) return false;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || cs.pointerEvents === 'none') return false;
+      return true;
+    })()`;
+  }
+
+  // List the attributes on the FIRST element matching `selector`, as
+  // [{name, value}] — powers the "pick an attribute" UI so the user sees exactly
+  // what's available and what each would grab, instead of guessing a name. For an
+  // <a>/<img>, href/src are shown resolved (absolute) since that's what gets read.
+  function attrsExpr(selector) {
+    return `(() => {
+      const el = document.querySelector(${J(selector)});
+      if (!el) return [];
+      return Array.from(el.attributes).map((a) => {
+        let v = a.value;
+        if (a.name === 'href' && el.href) v = el.href;
+        else if (a.name === 'src' && el.src) v = el.src;
+        return { name: a.name, value: v };
+      });
+    })()`;
+  }
+
   // Collect a value from EVERY element matching `selector` into an array — the
   // "gather a list" primitive (e.g. every child link's href, every price).
   // mode 'attr' reads an attribute; for href we use the .href PROPERTY so the
@@ -633,6 +668,8 @@
     hoverExpr,
     readOptionsExpr,
     existsExpr,
+    clickableExpr,
+    attrsExpr,
     collectExpr,
     textExistsExpr,
     suggestSourceExpr,

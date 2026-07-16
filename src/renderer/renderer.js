@@ -2854,6 +2854,7 @@ function buildEditorBody(s, root) {
       { value: 'checked', label: 'Whether it’s ticked (yes/no)' },
       { value: 'count', label: 'How MANY of them there are (a number)' },
       { value: 'exists', label: 'Whether it exists at all (yes/no)' },
+      { value: 'clickable', label: 'Whether you could click it — e.g. a “Next” button (yes/no)' },
       { value: 'collect', label: 'ALL of them, as a list (for a crawl queue)' },
       { value: 'textExists', label: '— whether some TEXT appears on the page (yes/no)' },
       { value: 'url', label: '— the page’s address (no element needed)' },
@@ -2895,7 +2896,11 @@ function buildEditorBody(s, root) {
         sync(); // shows the right fields AND auto-runs the live preview
       }
     });
-    input.addEventListener('input', () => { s.selector = input.value; getPreview(); });
+    input.addEventListener('input', () => {
+      s.selector = input.value;
+      getPreview();
+      if (s.source === 'attr' || s.source === 'collect') refreshAttrList();
+    });
     const selField = field('① Which element?', wrap);
 
     root.append(selField);
@@ -2912,10 +2917,51 @@ function buildEditorBody(s, root) {
     const livePrev = el('div', { className: 'get-live' });
     root.append(livePrev);
 
-    const attr = el('input', { value: s.attr, placeholder: 'attribute name, e.g. data-id' });
-    attr.addEventListener('input', () => (s.attr = attr.value));
-    const attrField = field('Which attribute?', attr);
+    // Which attribute? Instead of guessing a name, we show the element's ACTUAL
+    // attributes as a clickable list, each with the value it would grab. A small
+    // "or type one" box remains as an escape hatch.
+    const attrList = el('div', { className: 'attr-list' });
+    const attr = el('input', { className: 'attr-custom', value: s.attr, placeholder: 'or type one, e.g. data-id' });
+    attr.addEventListener('input', () => { s.attr = attr.value; markActiveAttr(); getPreview(); });
+    const attrField = field('Which attribute?', el('div', {}, [attrList, attr]),
+      'Pick the attribute you want — the value it would grab is shown next to each.');
     root.append(attrField);
+
+    function markActiveAttr() {
+      const want = (s.attr || '').trim();
+      [...attrList.querySelectorAll('.attr-opt')].forEach((b) => {
+        b.classList.toggle('active', b.dataset.attr === want);
+      });
+    }
+    async function refreshAttrList() {
+      if (s.source !== 'attr' && s.source !== 'collect') return;
+      const full = editingScope && !(editing && editing.abs)
+        ? (s.selector ? editingScope + ' ' + s.selector : editingScope) : s.selector;
+      attrList.innerHTML = '';
+      if (!full) { attrList.append(el('div', { className: 'hint', textContent: 'Pick the element above first ↑' })); return; }
+      let attrs = [];
+      try { attrs = (await pageEval(PA.attrsExpr(full))) || []; } catch (_) { attrs = []; }
+      if (!attrs.length) {
+        attrList.append(el('div', { className: 'hint', textContent: 'This element has no attributes — grab its text instead, or type one below.' }));
+        return;
+      }
+      for (const a of attrs) {
+        const opt = el('button', { className: 'attr-opt', type: 'button' });
+        opt.dataset.attr = a.name;
+        opt.append(
+          el('span', { className: 'attr-name', textContent: a.name }),
+          el('span', { className: 'attr-val', textContent: a.value === '' ? '(empty)' : String(a.value) })
+        );
+        opt.addEventListener('click', () => {
+          s.attr = a.name;
+          attr.value = a.name;
+          markActiveAttr();
+          getPreview();
+        });
+        attrList.append(opt);
+      }
+      markActiveAttr();
+    }
 
     const expr = el('input', { value: s.expr, placeholder: 'e.g. was - price' });
     expr.addEventListener('input', () => (s.expr = expr.value));
@@ -3005,6 +3051,12 @@ function buildEditorBody(s, root) {
           livePrev.className = 'get-live ' + (yes ? 'ok' : 'bad');
           return;
         }
+        if (s.source === 'clickable') {
+          const yes = await pageEval(PA.clickableExpr(full));
+          livePrev.textContent = `value now: ${yes ? 'yes — you could click it' : 'no — missing or disabled'}`;
+          livePrev.className = 'get-live ' + (yes ? 'ok' : 'bad');
+          return;
+        }
         if (s.source === 'collect') {
           const list = await pageEval(PA.collectExpr(full, (s.attr || '').trim() ? 'attr' : 'text', s.attr));
           const n = Array.isArray(list) ? list.length : 0;
@@ -3029,16 +3081,17 @@ function buildEditorBody(s, root) {
 
     const sync = () => {
       const needsSelector = !(s.source === 'expr' || s.source === 'url' || s.source === 'textExists');
-      const readsText = !['expr', 'count', 'exists', 'collect', 'textExists', 'checked'].includes(s.source);
+      const readsText = !['expr', 'count', 'exists', 'clickable', 'collect', 'textExists', 'checked'].includes(s.source);
       exprField.style.display = s.source === 'expr' ? '' : 'none';
       teField.style.display = s.source === 'textExists' ? '' : 'none';
       selField.style.display = needsSelector ? '' : 'none';
       // "Wait first" only applies to sources that read a specific element.
-      waitRow.style.display = needsSelector && !['count', 'exists', 'collect'].includes(s.source) ? '' : 'none';
+      waitRow.style.display = needsSelector && !['count', 'exists', 'clickable', 'collect'].includes(s.source) ? '' : 'none';
       // "collect" can read an attribute (e.g. href) off every match, so it gets
       // the attribute box too.
       attrField.style.display = (s.source === 'attr' || s.source === 'collect') ? '' : 'none';
       cleanWrap.style.display = readsText ? '' : 'none';
+      if (s.source === 'attr' || s.source === 'collect') refreshAttrList();
       if (needsSelector) check();
       if (s.source === 'textExists') teTest();
       getPreview(); // auto-run — no Test button press needed
@@ -5381,6 +5434,8 @@ async function execGet(s, ctx) {
     val = await pageEval(`document.querySelectorAll(${JSON.stringify(sel)}).length`);
   } else if (s.source === 'exists') {
     val = await pageEval(PA.existsExpr(sel));
+  } else if (s.source === 'clickable') {
+    val = await pageEval(PA.clickableExpr(sel));
   } else if (s.source === 'collect') {
     // Gather EVERY match into a list (e.g. all child link hrefs) — the seed/grow
     // primitive for a work-queue crawl. Keep it as a working value (list var).

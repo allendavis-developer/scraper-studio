@@ -55,15 +55,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await waitUrl('paged.html');
     await sleep(700);
 
-    // While(true, capped): grab this page's table, then stop if there's no
-    // ENABLED next (button gone OR present-but-.disabled), else click + wait.
-    const NEXT = '#next:not(.disabled):not([aria-disabled="true"])';
-    await R((nextSel) => {
+    // CODELESS pagination: the user only PICKS the Next button (plain "#next" —
+    // no ":not(.disabled)" to type). The "can I click it?" source detects the
+    // disabled/last-page state on its own. Repeat (capped) → grab → stop when
+    // Next isn't clickable → else click + wait.
+    await R(() => {
       steps.length = 0;
       steps.push({
-        type: 'while',
-        condition: { match: 'all', rules: [{ left: '1', op: 'eq', right: '1' }] }, // while true
-        maxIter: 50,
+        type: 'repeat', count: '50', indexVar: 'i', startAt: 0,
         body: [
           // Grab the current page's table (rows accumulate across passes).
           { type: 'scrapeTable', rowSelector: '#t tbody tr', keep: 'rows', dataset: '', skipTotals: false,
@@ -71,10 +70,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
               { name: 'barserial', label: 'Barserial', selector: 'td:nth-child(1)', extract: 'text', include: true, transforms: [] },
               { name: 'name', label: 'Name', selector: 'td:nth-child(2)', extract: 'text', include: true, transforms: [] }
             ] },
-          // Is there an ENABLED "next"?  (yes/no)
-          { type: 'get', name: 'hasNext', target: 'var', source: 'exists', selector: nextSel, attr: '', transforms: [] },
-          // No enabled next → we're on the last page → stop.
-          { type: 'if', condition: { match: 'all', rules: [{ left: 'hasNext', op: 'false' }] },
+          // "Could I click Next right now?" — picked element, no selector tricks.
+          { type: 'get', name: 'canNext', target: 'var', source: 'clickable', selector: '#next', attr: '', transforms: [] },
+          // Not clickable (gone OR present-but-disabled) → last page → stop.
+          { type: 'if', condition: { match: 'all', rules: [{ left: 'canNext', op: 'false' }] },
             then: [{ type: 'break' }], else: [] },
           // Otherwise advance and wait for the page to change.
           { type: 'click', selector: '#next', text: '' },
@@ -84,7 +83,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       reidList(steps); renderSteps();
       results.length = 0; columns.length = 0; columnConfig.length = 0; renderResults();
       document.getElementById('run').click();
-    }, NEXT);
+    });
     await waitRunDone();
 
     const rows = await R(() => JSON.parse(JSON.stringify(results)));

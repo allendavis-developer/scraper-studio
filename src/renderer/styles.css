@@ -501,6 +501,47 @@ select {
 .get-live.ok { color: var(--ok, #3ba55d); background: var(--accent-dim); }
 .get-live.bad { color: var(--danger, #e05c5c); }
 
+/* Attribute picker: a clean, scrollable list of an element's real attributes,
+   each showing the value it would grab. Click to choose (no typing). */
+.attr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 190px;
+  overflow-y: auto;
+  margin-bottom: 6px;
+}
+.attr-opt {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--input-bg);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+}
+.attr-opt:hover { border-color: var(--accent); background: var(--row-alt); }
+.attr-opt.active { border-color: var(--accent); background: var(--accent-dim); }
+.attr-opt .attr-name {
+  font: 600 12px/1.4 var(--mono);
+  color: var(--accent);
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.attr-opt .attr-val {
+  color: var(--text-dim);
+  font: 11px/1.4 var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+}
+.attr-custom { width: 100%; font: 11px/1.4 var(--mono); }
+
 /* --- "Whether text appears" live result ---------------------------------- */
 .te-result {
   display: block;

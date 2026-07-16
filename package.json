@@ -1,6 +1,6 @@
 {
   "name": "scrape-studio",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Scrape Studio — visual web scraper with point-and-click element selection, visual step programming, and CSV export.",
   "main": "src/main/main.js",
   "scripts": {
@@ -9,8 +9,8 @@
     "dist": "electron-builder --publish never",
     "release": "electron-builder --publish always",
     "test": "node test/expr-tests.js && node test/transform-tests.js && node test/scrape-tests.js && node test/session-cookie-tests.js && node test/stealth-tests.js",
-    "test:ui": "node test/ui-e2e.js && node test/legacy-e2e.js && node test/workflow-e2e.js && node test/table-e2e.js && node test/picker-row-e2e.js && node test/widen-pick-e2e.js && node test/scoped-pick-e2e.js && node test/empty-rows-e2e.js && node test/column-filter-e2e.js && node test/pagination-e2e.js && node test/crawl-e2e.js && node test/join-e2e.js && node test/cell-e2e.js && node test/pivot-e2e.js && node test/filter-e2e.js && node test/job-io-e2e.js && node test/ua-e2e.js && node test/session-e2e.js",
-    "test:all": "node test/expr-tests.js && node test/transform-tests.js && node test/scrape-tests.js && node test/session-cookie-tests.js && node test/stealth-tests.js && node test/ui-e2e.js && node test/legacy-e2e.js && node test/workflow-e2e.js && node test/table-e2e.js && node test/picker-row-e2e.js && node test/widen-pick-e2e.js && node test/scoped-pick-e2e.js && node test/empty-rows-e2e.js && node test/column-filter-e2e.js && node test/pagination-e2e.js && node test/crawl-e2e.js && node test/join-e2e.js && node test/cell-e2e.js && node test/pivot-e2e.js && node test/filter-e2e.js && node test/job-io-e2e.js && node test/ua-e2e.js && node test/session-e2e.js"
+    "test:ui": "node test/ui-e2e.js && node test/legacy-e2e.js && node test/workflow-e2e.js && node test/table-e2e.js && node test/picker-row-e2e.js && node test/widen-pick-e2e.js && node test/scoped-pick-e2e.js && node test/empty-rows-e2e.js && node test/column-filter-e2e.js && node test/pagination-e2e.js && node test/crawl-e2e.js && node test/attr-picker-e2e.js && node test/join-e2e.js && node test/cell-e2e.js && node test/pivot-e2e.js && node test/filter-e2e.js && node test/job-io-e2e.js && node test/ua-e2e.js && node test/session-e2e.js",
+    "test:all": "node test/expr-tests.js && node test/transform-tests.js && node test/scrape-tests.js && node test/session-cookie-tests.js && node test/stealth-tests.js && node test/ui-e2e.js && node test/legacy-e2e.js && node test/workflow-e2e.js && node test/table-e2e.js && node test/picker-row-e2e.js && node test/widen-pick-e2e.js && node test/scoped-pick-e2e.js && node test/empty-rows-e2e.js && node test/column-filter-e2e.js && node test/pagination-e2e.js && node test/crawl-e2e.js && node test/attr-picker-e2e.js && node test/join-e2e.js && node test/cell-e2e.js && node test/pivot-e2e.js && node test/filter-e2e.js && node test/job-io-e2e.js && node test/ua-e2e.js && node test/session-e2e.js"
   },
   "keywords": [
     "scraper",
