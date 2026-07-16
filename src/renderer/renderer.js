@@ -1168,6 +1168,11 @@ function compileFormula(f) {
     if (!ds) return '""';
     return `lookup(${ds}, ${JSON.stringify(f.keyCol || '')}, ${JSON.stringify(f.keyVal || '')}, ${JSON.stringify(f.valCol || '')})`;
   }
+  // List operations — the codeless work-queue building blocks. Each reads a list
+  // value (picked from the value dropdown) and returns a value or a new list.
+  if (f.kind === 'listFirst') return `listFirst(${operandExpr(f.v)})`;
+  if (f.kind === 'listRest') return `listRest(${operandExpr(f.v)})`;
+  if (f.kind === 'listAppend') return `listConcat(${operandExpr(f.a)}, ${operandExpr(f.b)})`;
   if (f.kind === 'textTest') {
     // A yes/no check on a value: contains / starts with / matches / is empty…
     // Compiles to the evaluator's own string helpers. Text operands are quoted
@@ -1227,6 +1232,12 @@ function blankFormula(kind) {
       return { kind: 'lookup', dataset: '', keyCol: '', keyVal: '', valCol: '' };
     case 'textTest':
       return { kind: 'textTest', a: { type: 'col', v: '' }, op: 'contains', b: { type: 'text', v: '' } };
+    case 'listFirst':
+      return { kind: 'listFirst', v: { type: 'col', v: '' } };
+    case 'listRest':
+      return { kind: 'listRest', v: { type: 'col', v: '' } };
+    case 'listAppend':
+      return { kind: 'listAppend', a: { type: 'col', v: '' }, b: { type: 'col', v: '' } };
     default:
       return { kind: 'math', a: { type: 'col', v: '' }, op: '-', b: { type: 'col', v: '' } };
   }
@@ -1246,6 +1257,9 @@ function formulaSummary(f) {
     const op = (TEXT_TEST_OPS.find((o) => o.v === f.op) || { label: f.op || 'contains' }).label;
     return TEXT_TEST_NOVALUE.has(f.op) ? `${opnd(f.a)} ${op}` : `${opnd(f.a)} ${op} ${opnd(f.b)}`;
   }
+  if (f.kind === 'listFirst') return `first thing in ${opnd(f.v)}`;
+  if (f.kind === 'listRest') return `${opnd(f.v)} without its first thing`;
+  if (f.kind === 'listAppend') return `${opnd(f.a)} + ${opnd(f.b)} (as a list)`;
   return '';
 }
 
@@ -2375,13 +2389,17 @@ function operandControl(operand, allowed, onChange) {
     wrap.innerHTML = '';
     if (!operand.type || !allowed.includes(operand.type)) operand.type = allowed[0];
     const label = (t) => (t === 'col' ? 'a value' : t === 'num' ? 'a number' : 'fixed text');
-    const ts = select(operand.type, allowed.map((t) => ({ value: t, label: label(t) })));
-    ts.addEventListener('change', () => {
-      operand.type = ts.value;
-      build();
-      onChange();
-    });
-    wrap.append(ts);
+    // Only show the type chooser when there's an actual choice — a single-type
+    // operand (e.g. a list value) just shows its value dropdown, no clutter.
+    if (allowed.length > 1) {
+      const ts = select(operand.type, allowed.map((t) => ({ value: t, label: label(t) })));
+      ts.addEventListener('change', () => {
+        operand.type = ts.value;
+        build();
+        onChange();
+      });
+      wrap.append(ts);
+    }
     if (operand.type === 'col') {
       const nm = valueNames();
       const opts = [{ value: '', label: 'pick a value…' }].concat(nm.map((n) => ({ value: n, label: n })));
@@ -2429,7 +2447,10 @@ function renderFormulaBuilder(s, host) {
     { value: 'percent', label: 'Percentage  ( A as % of B )' },
     { value: 'combine', label: 'Combine text  ( join values )' },
     { value: 'textTest', label: 'Yes/No test  ( contains, starts with… )' },
-    { value: 'lookup', label: 'Look up a value from a table / list' }
+    { value: 'lookup', label: 'Look up a value from a table / list' },
+    { value: 'listFirst', label: 'List: the first thing in it' },
+    { value: 'listRest', label: 'List: everything except the first thing' },
+    { value: 'listAppend', label: 'List: a list with more added' }
   ]);
   kindSel.addEventListener('change', () => {
     s.formula = blankFormula(kindSel.value);
@@ -2507,6 +2528,19 @@ function renderFormulaBuilder(s, host) {
     body.append(el('div', { className: 'hint', textContent:
       'A Yes/No answer — e.g. does the Name contain “gold”, or is the Barserial empty. ' +
       'Great as a column, or feed it into an “If” / “Skip item” to keep only the rows you want.' }));
+  } else if (f.kind === 'listFirst' || f.kind === 'listRest') {
+    body.append(el('div', { className: 'formula-row' }, [operandControl(f.v, ['col'], refresh)]));
+    body.append(el('div', { className: 'hint', textContent: f.kind === 'listFirst'
+      ? 'Takes the FIRST thing out of a list you collected — e.g. the next URL to visit from a queue.'
+      : 'The list with its first thing removed. Pair with “the first thing in it” to walk a queue one item at a time.' }));
+  } else if (f.kind === 'listAppend') {
+    body.append(el('div', { className: 'formula-row' }, [
+      operandControl(f.a, ['col'], refresh),
+      el('span', { className: 'formula-op', textContent: 'plus' }),
+      operandControl(f.b, ['col'], refresh)
+    ]));
+    body.append(el('div', { className: 'hint', textContent:
+      'Joins two lists into one — e.g. add newly-found links to your crawl queue.' }));
   } else if (f.kind === 'lookup') {
     const defs = datasetDefs();
     if (!defs.length) {

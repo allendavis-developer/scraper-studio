@@ -223,7 +223,7 @@
     dateFmt,
     dateDiff,
     today,
-    len: (x) => String(x == null ? '' : x).length,
+    len: (x) => (Array.isArray(x) ? x.length : String(x == null ? '' : x).length),
     lower: (x) => String(x == null ? '' : x).toLowerCase(),
     upper: (x) => String(x == null ? '' : x).toUpperCase(),
     trim: (x) => String(x == null ? '' : x).trim(),

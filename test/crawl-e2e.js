@@ -56,19 +56,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await waitUrl('root.html');
     await sleep(700);
 
+    // Built entirely from VISUAL builders — no typed list expressions:
+    //   • get "collect"                        → seed / gather child links
+    //   • While  [queue] is not empty          → condition builder (nempty op)
+    //   • Formula "first thing in [queue]"      → next item to visit
+    //   • Formula "[queue] without its first"   → pop
+    //   • Formula "[queue] plus [kids]"         → grow the queue
+    //   • If [isLeaf] is true → Grab a table, else collect + append
     await R(() => {
       steps.length = 0;
       steps.push(
-        // Seed the queue with the root's child links (collected as a LIST).
         { type: 'get', name: 'queue', target: 'var', source: 'collect', selector: 'a.crawl', attr: 'href', transforms: [] },
-        // Drain the queue; the body may push more onto it → any depth.
         {
           type: 'while',
-          condition: { match: 'all', rules: [{ left: 'listLen(queue)', op: 'gt', right: '0' }] },
+          condition: { match: 'all', rules: [{ left: 'queue', op: 'nempty' }] },
           maxIter: 100,
           body: [
-            { type: 'get', name: 'current', target: 'var', source: 'expr', expr: 'listFirst(queue)', transforms: [] },
-            { type: 'get', name: 'queue', target: 'var', source: 'expr', expr: 'listRest(queue)', transforms: [] },
+            { type: 'formula', name: 'current', target: 'var', formula: { kind: 'listFirst', v: { type: 'col', v: 'queue' } } },
+            { type: 'formula', name: 'queue', target: 'var', formula: { kind: 'listRest', v: { type: 'col', v: 'queue' } } },
             { type: 'goto', url: '{{current}}' },
             { type: 'get', name: 'isLeaf', target: 'var', source: 'exists', selector: 'table.products', attr: '', transforms: [] },
             {
@@ -80,7 +85,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
               ],
               else: [
                 { type: 'get', name: 'kids', target: 'var', source: 'collect', selector: 'a.crawl', attr: 'href', transforms: [] },
-                { type: 'get', name: 'queue', target: 'var', source: 'expr', expr: 'listConcat(queue, kids)', transforms: [] }
+                { type: 'formula', name: 'queue', target: 'var', formula: { kind: 'listAppend', a: { type: 'col', v: 'queue' }, b: { type: 'col', v: 'kids' } } }
               ]
             }
           ]
