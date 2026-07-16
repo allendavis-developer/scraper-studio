@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Column Filter</title></head>
+<body>
+<h1>Transactions</h1>
+<!-- Every column is a bare <td> (no classes) — so they all share the selector
+     "td". The value "Sale" appears in the TYPE column of rows 1 & 3, but ALSO in
+     the description/status of row 2. A whole-row "text contains Sale" wrongly
+     matches 3 rows; a "column td:nth-of-type(1) is exactly Sale" matches only 2.
+     This is the case where per-column filtering is required. -->
+<table id="t">
+  <thead>
+    <tr><th>Type</th><th>Item</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Sale</td><td>Widget</td><td>In Stock</td></tr>
+    <tr><td>Return</td><td>Sale item gadget</td><td>Sale</td></tr>
+    <tr><td>Sale</td><td>Gizmo</td><td>Low</td></tr>
+    <tr><td>Refund</td><td>Thing</td><td>In Stock</td></tr>
+  </tbody>
+</table>
+</body>
+</html>

@@ -48,6 +48,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('the webview UA declares Chrome + Safari like a real browser',
       /Chrome\/[\d.]+/.test(ua) && /Safari\/537\.36/.test(ua), ua);
 
+    // navigator.languages must be clean codes — regression guard for the CDP
+    // acceptLanguage double-encoding bug that produced ["en-GB","en;q=0.9"]
+    // (a q-value leaked into a language token), an instant bot tell.
+    const langs = await R(() => document.getElementById('view').executeJavaScript('JSON.stringify(navigator.languages)'));
+    console.log('  navigator.languages:', langs);
+    check('navigator.languages has no q-value leaked into a token', !/;q=/i.test(langs), langs);
+
     // The main process also exposes the clean UA app-wide (userAgentFallback).
     const fallback = await app.evaluate(({ app: a }) => a.userAgentFallback);
     check('app.userAgentFallback is the clean UA too', !/Electron/i.test(fallback), fallback);

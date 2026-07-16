@@ -335,10 +335,21 @@
       const norm = s => (s == null ? '' : String(s)).replace(/\\s+/g,' ').trim();
       const numOf = s => { const m = String(s == null ? '' : s).match(/-?[0-9][0-9.,]*/); return m ? parseFloat(m[0].replace(/,/g,'')) : NaN; };
       const active = filter && Array.isArray(filter.rules)
-        ? filter.rules.filter(r => r && (String(r.value != null ? r.value : '').trim() !== '' || r.op === 'empty' || r.op === 'nempty'))
+        ? filter.rules.filter(r => r
+            && (r.test !== 'cell' || String(r.selector != null ? r.selector : '').trim() !== '') // a column rule needs a column
+            && (String(r.value != null ? r.value : '').trim() !== '' || r.op === 'empty' || r.op === 'nempty'))
         : [];
       function fieldRaw(el, rule) {
         if (rule.test === 'attr') return el.getAttribute(rule.attr || '') || '';
+        // A specific column: read one descendant cell (selector relative to the
+        // row), so "the Category column = Other" tests THAT cell, not the whole
+        // row's text — even when several columns share a tag/class.
+        if (rule.test === 'cell') {
+          if (!rule.selector) return '';
+          let c = null;
+          try { c = el.querySelector(rule.selector); } catch (_) { c = null; }
+          return c ? norm(c.innerText || c.textContent) : '';
+        }
         return norm(el.innerText || el.textContent);
       }
       function testRule(el, rule) {

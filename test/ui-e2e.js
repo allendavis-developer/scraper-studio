@@ -90,6 +90,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     })()`);
   }
   const simulateGuestClick = (sel) => guestClickAt(sel, 0.5, 0.5);
+  // A SCOPED pick (a column/value relative to a For-each item or grab-a-list row)
+  // opens a dialog holding a COPY of the item; the value is picked by clicking it
+  // inside that copy. Click by the inner selector, within the dialog backdrop.
+  async function clickInScopeClone(innerSel) {
+    const c = await G(`(() => {
+      const bd = [...document.documentElement.children].find(n=>n.tagName==='DIV'&&n.style.position==='fixed'&&n.style.zIndex==='2147483640');
+      const el = bd && bd.querySelector(${JSON.stringify(innerSel)});
+      if(!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.left+r.width/2), y: Math.round(r.top+r.height/2) };
+    })()`);
+    if (!c) throw new Error('scoped dialog clone missing: ' + innerSel);
+    await G(`(() => { const el=document.elementFromPoint(${c.x},${c.y}); el.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:${c.x},clientY:${c.y}})); el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,clientX:${c.x},clientY:${c.y}})); })()`);
+  }
   async function waitRunDone() {
     for (let i = 0; i < 100; i++) {
       const busy = await R(() => document.getElementById('run').disabled);
@@ -532,7 +546,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // ② Pick the name column (relative to the row)
     await R(() => document.querySelector('.field-row .mini-pick').click());
     await sleep(250);
-    await simulateGuestClick('#list li.item .name');
+    await clickInScopeClone('.name');
     await sleep(450);
     const nameSel = await R(() => document.querySelectorAll('.field-row')[0].querySelectorAll('input')[1].value);
     check('column pick is RELATIVE (not absolute)', nameSel === '.name' || (!/>/.test(nameSel) && /name/.test(nameSel)), nameSel);
@@ -545,7 +559,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await R(() => [...document.querySelectorAll('#modal-body button')].find((b) => /Add column/.test(b.textContent)).click());
     await R(() => [...document.querySelectorAll('.field-row .mini-pick')][1].click());
     await sleep(250);
-    await simulateGuestClick('#list li.item .price');
+    await clickInScopeClone('.price');
     await sleep(450);
     await R(() => {
       const r1 = document.querySelectorAll('.field-row')[1];
@@ -780,7 +794,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     });
     await R(() => document.querySelector('#modal-body .mini-pick').click());
     await sleep(250);
-    await simulateGuestClick('#list li.item .price');
+    await clickInScopeClone('.price');
     await sleep(450);
     const pickedInLoop = await R(() => ({
       selector: document.querySelector('#modal-body .sel-input').value,
@@ -859,20 +873,47 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('the working value “was” stayed OUT of the CSV',
       !disc.headers.includes('was'), JSON.stringify(disc.headers));
 
-    // ---- picking OUTSIDE the item auto-ticks the escape hatch ----------
-    console.log('\n[15] picking an element outside the item flags it as page-wide');
+    // ---- scoped pick BLOCKS outside the item; the escape hatch is opt-in ----
+    // A pick inside a "For each" is scoped to the item (the page is dimmed, only
+    // the item is clickable), so a click outside is rejected rather than silently
+    // producing a page-wide selector. To pick something page-wide on purpose you
+    // first tick "somewhere else on the page", which unscopes the pick.
+    console.log('\n[15] scoped pick blocks outside the item; opt-in for page-wide');
     await addInto('For each', 'Grab one value');
     await R(() => document.querySelector('#modal-body .mini-pick').click());
     await sleep(250);
-    await simulateGuestClick('#q'); // the search box — NOT inside a card
+    await simulateGuestClick('#q'); // the search box — NOT inside a card → blocked
+    await sleep(450);
+    const blocked = await R(() => ({
+      // The editor is still hidden because the pick is still active (nothing picked).
+      modalHidden: document.getElementById('modal').classList.contains('hidden'),
+      picking: typeof pickActive !== 'undefined' ? pickActive : null
+    }));
+    check('clicking outside the item does NOT complete the pick (still picking)',
+      blocked.modalHidden === true && blocked.picking === true, JSON.stringify(blocked));
+    // Cancel the pick (Esc in the page) — this discards the unsaved new step.
+    await G(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))`);
+    await sleep(300);
+
+    // Now the escape hatch: tick "somewhere else on the page" FIRST, which
+    // unscopes the pick, then pick the page-level search box.
+    await addInto('For each', 'Grab one value');
+    await R(() => {
+      const row = [...document.querySelectorAll('#modal-body .check-row')].find((r) => /somewhere else/.test(r.textContent));
+      row.querySelector('input').click(); // tick → editing.abs = true → unscoped
+    });
+    await sleep(150);
+    await R(() => document.querySelector('#modal-body .mini-pick').click());
+    await sleep(250);
+    await simulateGuestClick('#q'); // now page-wide → allowed
     await sleep(450);
     const outside = await R(() => ({
       selector: document.querySelector('#modal-body .sel-input').value,
       absTicked: [...document.querySelectorAll('#modal-body .check-row')]
         .find((r) => /somewhere else/.test(r.textContent)).querySelector('input').checked
     }));
-    check('an out-of-item pick is auto-flagged "somewhere else on the page"', outside.absTicked === true, JSON.stringify(outside));
-    check('…and keeps its page-wide selector', /#q/.test(outside.selector), outside.selector);
+    check('with "somewhere else" ticked, a page-wide pick is allowed', /#q/.test(outside.selector), JSON.stringify(outside));
+    check('…and the escape-hatch box stays ticked', outside.absTicked === true, JSON.stringify(outside));
     await R(() => document.getElementById('modal-cancel').click());
 
     // ---- text clean-up pipeline (no regex) -----------------------------
@@ -1084,7 +1125,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     await R(() => document.querySelector('.field-row .mini-pick').click());
     await sleep(250);
-    await simulateGuestClick('#list li.item .name');
+    await clickInScopeClone('.name');
     await sleep(500);
     const colName = await R(() => document.querySelector('.field-row input').value);
     check('a column pick auto-names itself too', colName === 'name', colName);
@@ -1110,7 +1151,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await sleep(200);
     await R(() => document.querySelector('#modal-body .mini-pick').click());
     await sleep(250);
-    await simulateGuestClick('#list li.item .price');
+    await simulateGuestClick('#list li.item .price'); // unscoped grab-a-value → real page
     await sleep(500);
     await R(() => {
       const b = [...document.querySelectorAll('.choice button')].find((x) => /All \d+ like it/.test(x.textContent));

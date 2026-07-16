@@ -449,12 +449,20 @@ function startPick(mode, target) {
   const map = $('#map-modal');
   pickHidMap = !map.classList.contains('hidden');
   if (pickHidMap) map.classList.add('hidden');
+  const scoped = !!target.relativeTo;
   if (view) view.send('picker:start', { mode, relativeTo: target.relativeTo || '' });
-  // Say what you're actually pointing at — a table pick highlights whole tables.
-  $('#pick-hint').innerHTML =
-    mode === 'table'
+  // Say what you're actually pointing at. A SCOPED pick (a value/list inside a
+  // "For each" item, or a column inside a grabbed list) shows a copy of that item
+  // in a dialog and only lets you click inside it — so the message is about that,
+  // not the whole page. Otherwise: table picks highlight whole tables; list picks
+  // highlight whole rows (with an Alt escape hatch to a cell).
+  $('#pick-hint').innerHTML = scoped
+    ? 'A copy of the item is shown — <b>click the value you want inside it</b>. <kbd>↑</kbd>/<kbd>↓</kbd> for a bigger/smaller box. <kbd>Esc</kbd> to cancel'
+    : mode === 'table'
       ? 'Move over the page — <b>whole tables light up</b>. Click the one you want — <kbd>Esc</kbd> to cancel'
-      : 'Click an element on the page — <kbd>Esc</kbd> to cancel';
+      : mode === 'list'
+        ? 'Click a repeating item. <kbd>↑</kbd>/<kbd>↓</kbd> grab a <b>bigger/smaller box</b> (e.g. a whole card). Over a table, whole rows light up — <kbd>Alt</kbd> for one cell. <kbd>Esc</kbd> to cancel'
+        : 'Click an element. <kbd>↑</kbd>/<kbd>↓</kbd> grab a <b>bigger/smaller box</b> around it. <kbd>Esc</kbd> to cancel';
   $('#pick-hint').classList.remove('hidden');
 }
 
@@ -489,11 +497,19 @@ function cancelPick() {
   log('Pick cancelled.', 'warn');
 }
 
-// Esc cancels an active pick regardless of which side has keyboard focus.
+// Keyboard during a pick. Focus stays on the HOST window (the webview isn't
+// focused — moving the mouse over it doesn't focus it, and clicks are
+// intercepted), so these keys never reach the guest's own listener. We forward
+// them, mirroring how Esc is handled here and how zoom is forwarded.
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && pickActive) {
+  if (!pickActive) return;
+  if (e.key === 'Escape') {
     e.preventDefault();
     cancelPick();
+  } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    // ↑ grabs a bigger box (parent), ↓ a smaller one — for grabbing a whole card.
+    e.preventDefault();
+    if (view) view.send('picker:widen', e.key === 'ArrowUp' ? 'up' : 'down');
   }
 });
 
@@ -1046,6 +1062,7 @@ function condSummaryWith(cond, vars) {
 // ignored, so a filter with nothing filled in keeps everything.
 const FILTER_TESTS = [
   { v: 'text', label: 'its text' },
+  { v: 'cell', label: 'a specific column…' },
   { v: 'attr', label: 'an attribute…' },
   { v: 'number', label: 'a number in its text' }
 ];
@@ -1071,19 +1088,25 @@ function normalizeFilter(f) {
   return { match: 'all', rules: [] };
 }
 function newFilterRule() {
-  return { test: 'text', attr: '', op: 'contains', value: '' };
+  return { test: 'text', attr: '', selector: '', op: 'contains', value: '' };
 }
 // The rules that actually constrain anything (a value, or a no-value operator).
+// A "specific column" rule also needs a column picked, or it constrains nothing.
 function activeFilterRules(f) {
   f = normalizeFilter(f);
-  return f.rules.filter((r) => r && (String(r.value == null ? '' : r.value).trim() !== '' || FILTER_OP_NOVALUE.has(r.op)));
+  return f.rules.filter((r) => r
+    && (r.test !== 'cell' || String(r.selector || '').trim() !== '')
+    && (String(r.value == null ? '' : r.value).trim() !== '' || FILTER_OP_NOVALUE.has(r.op)));
 }
 function filterSummary(f) {
   f = normalizeFilter(f);
   const rules = activeFilterRules(f);
   if (!rules.length) return '';
   const part = (r) => {
-    const test = r.test === 'attr' ? `[${r.attr || 'attr'}]` : r.test === 'number' ? 'number' : 'text';
+    const test = r.test === 'attr' ? `[${r.attr || 'attr'}]`
+      : r.test === 'number' ? 'number'
+      : r.test === 'cell' ? `column “${r.selector || '?'}”`
+      : 'text';
     const op = (FILTER_OPS.find((o) => o.v === r.op) || { label: r.op }).label;
     return FILTER_OP_NOVALUE.has(r.op) ? `${test} ${op}` : `${test} ${op} “${r.value}”`;
   };
@@ -3907,8 +3930,8 @@ function buildForEachFilter(s, root) {
 
   root.append(el('label', { className: 'field-label', textContent: 'Only these items (optional filter)' }));
   root.append(el('div', { className: 'hint', textContent:
-    'Leave empty to use every match. Or keep only the ones where the item’s text / an attribute / ' +
-    'a number matches — e.g. text contains “Xbox”.' }));
+    'Leave empty to use every match. Or keep only the ones that match a rule — e.g. its text ' +
+    'contains “Xbox”, or a specific column (Pick it) is exactly “Other”. Combine rules with ALL / ANY.' }));
 
   const previewBox = el('div', { className: 'preview-box hidden' });
   const matchSel = select(f.match, [
@@ -3929,8 +3952,31 @@ function buildForEachFilter(s, root) {
       const attrInp = el('input', { value: r.attr || '', placeholder: 'attribute', style: 'width:90px' });
       const opSel = select(r.op, FILTER_OPS.map((o) => ({ value: o.v, label: o.label })));
       const valInp = el('input', { value: r.value == null ? '' : r.value, placeholder: 'value', style: 'flex:1;min-width:70px' });
+
+      // "a specific column…": a Pick button + the picked column selector. The pick
+      // is RELATIVE to the item (row), so it targets that one column in every
+      // row — even when every column is a bare <td> that shares a selector, the
+      // picked "td:nth-of-type(2)" disambiguates it by position. Works the same
+      // for card/div lists (the "column" is any sub-element you click).
+      const cellInp = el('input', { value: r.selector || '', placeholder: 'pick a column →', style: 'width:130px', title: 'The column this rule tests' });
+      const cellPick = el('button', { className: 'mini-pick pick-btn', textContent: '⊕', title: 'Pick the column to test' });
+      const cellWrap = el('span', { className: 'input-with-pick', style: 'gap:3px' }, [cellInp, cellPick]);
+      cellInp.addEventListener('input', () => { r.selector = cellInp.value; runPreview(); });
+      cellPick.addEventListener('click', () => {
+        // The item/row this filter belongs to (matches runPreview's scope).
+        const rowSel = editingScope && !s.abs ? (s.selector ? editingScope + ' ' + s.selector : editingScope) : s.selector;
+        if (!rowSel) { log('Pick the row for this “For each” first, then pick a column.', 'warn'); return; }
+        startPick('element', {
+          type: 'input',
+          input: cellInp,
+          relativeTo: rowSel,
+          onFilled: (selv) => { r.selector = selv; cellInp.value = selv; runPreview(); }
+        });
+      });
+
       const syncVis = () => {
         attrInp.style.display = r.test === 'attr' ? '' : 'none';
+        cellWrap.style.display = r.test === 'cell' ? '' : 'none';
         valInp.style.display = FILTER_OP_NOVALUE.has(r.op) ? 'none' : '';
       };
       testSel.addEventListener('change', () => { r.test = testSel.value; syncVis(); runPreview(); });
@@ -3939,7 +3985,7 @@ function buildForEachFilter(s, root) {
       valInp.addEventListener('input', () => { r.value = valInp.value; runPreview(); });
       const del = el('button', { className: 'del', textContent: '✕', title: 'Remove rule' });
       del.addEventListener('click', () => { f.rules.splice(i, 1); renderRules(); runPreview(); });
-      rulesWrap.append(el('div', { className: 'formula-row' }, [testSel, attrInp, opSel, valInp, del]));
+      rulesWrap.append(el('div', { className: 'formula-row' }, [testSel, attrInp, cellWrap, opSel, valInp, del]));
       syncVis();
     });
     matchRow.style.display = f.rules.length > 1 ? '' : 'none';
@@ -4562,6 +4608,20 @@ function names(ctx) {
 
 const sameRow = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+// Did this loop pass actually collect data — i.e. add at least one NON-BLANK
+// value beyond what it inherited from the enclosing loop? Used to decide whether
+// a pass becomes a row. Guards against emitting an all-empty row for a matched
+// element that had none of the target cells — e.g. the empty spacer <tr></tr>
+// rows some sites put between real rows, which otherwise each grab nothing yet
+// still commit a blank row.
+function passHasData(pageRow, base) {
+  for (const k of Object.keys(pageRow)) {
+    if (pageRow[k] === base[k]) continue; // unchanged from what we inherited
+    if (String(pageRow[k] == null ? '' : pageRow[k]).trim() !== '') return true;
+  }
+  return false;
+}
+
 // Commit the row being built, then start the next one from whatever the
 // enclosing loop had already collected (so a parent's columns aren't lost).
 function commitRow(ctx) {
@@ -4590,9 +4650,11 @@ async function runLoopPass(body, ctx) {
     }
     throw e; // break / real error
   }
-  if (ctx.committed === before && !sameRow(ctx.pageRow, base)) {
+  if (ctx.committed === before && passHasData(ctx.pageRow, base)) {
     commitRow(ctx);
   } else {
+    // Nothing new, or only blanks (e.g. an empty spacer row) → no row for this
+    // item. Reset the buffer to what we inherited for the next pass.
     ctx.pageRow = { ...base };
   }
   ctx.rowBase = outerBase;

@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Cards</title>
+<style>
+  .grid { display:flex; flex-wrap:wrap; gap:12px; padding:12px; }
+  /* The card's two children fill it completely — there is no bare edge to hover,
+     so the only way to select .wrapper-box is to widen up from a child. */
+  .wrapper-box { width:200px; border:1px solid #ccc; }
+  .thumbnail { height:80px; background:#eee; }
+  .content { padding:8px; }
+  .card-title { font-weight:600; }
+  .product-main-price { color:#0a0; }
+</style>
+</head>
+<body>
+<h1 id="page-heading">GameCube Games</h1>
+<div class="grid">
+  <div class="wrapper-box"><div class="thumbnail"><img class="cover" alt="cover art" src="#"><span class="cx-warranty-badge">5 Year Warranty</span></div><div class="content"><div class="card-subtitle">GameCube Games</div><div class="card-title"><a href="#">Super Mario Sunshine</a></div><div class="product-prices"><p class="product-main-price">£20.00</p></div></div></div>
+  <div class="wrapper-box"><div class="thumbnail"><img class="cover" alt="cover art" src="#"><span class="cx-warranty-badge">5 Year Warranty</span></div><div class="content"><div class="card-subtitle">GameCube Games</div><div class="card-title"><a href="#">Luigi's Mansion</a></div><div class="product-prices"><p class="product-main-price">£15.00</p></div></div></div>
+  <div class="wrapper-box"><div class="thumbnail"><img class="cover" alt="cover art" src="#"><span class="cx-warranty-badge">5 Year Warranty</span></div><div class="content"><div class="card-subtitle">GameCube Games</div><div class="card-title"><a href="#">Metroid Prime</a></div><div class="product-prices"><p class="product-main-price">£12.50</p></div></div></div>
+</div>
+<!-- A deliberately very WIDE item: without scaling, cloning this into the dialog
+     would force horizontal scrolling. The scoped picker must scale it to fit. -->
+<div id="wide-item" style="width:2000px; display:flex; gap:24px; padding:16px; border:1px solid #ccc;">
+  <div class="w-name" style="width:900px;">A very wide product name that runs on and on</div>
+  <div class="w-sku" style="width:500px;">SKU-999999</div>
+  <div class="w-price" style="width:500px;">£123.45</div>
+</div>
+<!-- A narrow card whose INNER image is intrinsically much wider than the card
+     (the real-site symptom: a product image tries to render at its natural width
+     and blows the card out). The copy must stay at the card's width, not the
+     image's. The image has no src so it won't load — the width cap must hold on
+     its own, without relying on any measurement. -->
+<div id="broad-card" style="width:220px; border:1px solid #ccc; padding:8px;">
+  <img class="bc-img" width="1200" style="max-width:100%; display:block;" alt="broad">
+  <div class="bc-title">Narrow Card, Broad Image</div>
+  <div class="bc-price">£7.77</div>
+</div>
+</body>
+</html>

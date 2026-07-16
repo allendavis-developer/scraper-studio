@@ -5,15 +5,48 @@
 const { app, BrowserWindow, Menu, nativeTheme, ipcMain, dialog, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
 const { cookiePersistDetails } = require('../shared/session-cookies');
 const { realisticUserAgent, userAgentMetadata } = require('../shared/stealth');
 
 const isDev = process.argv.includes('--dev');
 
+// Auto-update from GitHub Releases. On launch (packaged builds only) we check the
+// project's latest release; if a newer version is published, electron-updater
+// downloads it in the background and, once ready, restarts into the new version.
+// Wrapped so a failed/offline check never blocks or crashes startup.
+function initAutoUpdate(win) {
+  if (isDev || !app.isPackaged) return; // nothing to update in a dev checkout
+  autoUpdater.autoDownload = true;
+  autoUpdater.on('update-downloaded', (info) => {
+    // Let the user know, then relaunch into the new version. quitAndInstall on
+    // the next tick so the notification/log flushes first.
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('update-status', { state: 'downloaded', version: info && info.version });
+    }
+    setImmediate(() => {
+      try { autoUpdater.quitAndInstall(); } catch (_) {}
+    });
+  });
+  autoUpdater.on('error', (err) => {
+    try { console.error('[auto-update]', err && err.message ? err.message : err); } catch (_) {}
+  });
+  autoUpdater.checkForUpdates().catch(() => {});
+}
+
 // Remove the "controlled by automation" tell: this makes navigator.webdriver
 // undefined and drops the automation banner, so pages don't see us as a bot.
 // (Must be set before the app is ready.)
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
+
+// THE big anti-block lever: force HTTP/1.1 (disable HTTP/2). Electron's HTTP/2
+// SETTINGS frame differs from real Chrome's (e.g. it omits MAX_CONCURRENT_STREAMS
+// 3:1000), so Cloudflare's HTTP/2 ("Akamai") fingerprinting spots the mismatch
+// and hard-blocks — even with a perfect UA + client hints, and even for a plain
+// Electron webview. Measured: over HTTP/2 uk.webuy.com blocks every time; over
+// HTTP/1.1 it passes every time. HTTP/1.1 has no such fingerprint to mismatch.
+// (Must be set before the app is ready.)
+app.commandLine.appendSwitch('disable-http2');
 
 // A clean desktop-Chrome User-Agent (no "Electron/…" / app-name tokens), so
 // bot-protection (Cloudflare, etc.) doesn't block us on sight. Derived from
@@ -79,7 +112,11 @@ function applyUaOverride(contents) {
     dbg.sendCommand('Network.enable').catch(() => {});
     dbg.sendCommand('Network.setUserAgentOverride', {
       userAgent: STEALTH_UA,
-      acceptLanguage: 'en-GB,en;q=0.9',
+      // BARE language codes only — Chromium appends the q-values itself. Passing
+      // 'en-GB,en;q=0.9' here double-encoded it: the header became
+      // 'en-GB,en;q=0.9;q=0.9' and navigator.languages became ["en-GB","en;q=0.9"],
+      // both impossible for a real browser and an instant bot tell.
+      acceptLanguage: 'en-GB,en',
       platform: UA_METADATA.platform,
       userAgentMetadata: UA_METADATA
     }).catch(() => {});
@@ -157,6 +194,7 @@ function createWindow() {
   if (isDev) {
     win.webContents.openDevTools({ mode: 'detach' });
   }
+  return win;
 }
 
 app.whenReady().then(() => {
@@ -164,7 +202,8 @@ app.whenReady().then(() => {
   // so sites that honor prefers-color-scheme render in light mode by default.
   // Our own UI theme is driven separately by the data-theme attribute.
   nativeTheme.themeSource = 'light';
-  createWindow();
+  const win = createWindow();
+  initAutoUpdate(win);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

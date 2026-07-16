@@ -1,0 +1,35 @@
+name: Release
+
+# Build the Windows app and publish it to a GitHub Release whenever a version
+# tag (e.g. v0.1.1) is pushed. electron-builder uploads the installer plus the
+# `latest.yml` metadata that the app's electron-updater reads to auto-update.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write # needed for electron-builder to create/upload the release
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Skip the heavy Playwright/Puppeteer browser downloads — they're only used
+      # by the test suite, not by the build.
+      - name: Install dependencies
+        run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+
+      - name: Build and publish
+        run: npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
