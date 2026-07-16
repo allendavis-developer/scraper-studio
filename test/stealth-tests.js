@@ -3,7 +3,7 @@
 //
 //   node test/stealth-tests.js
 
-const { realisticUserAgent, looksLikeBot, defaultHeaders } = require('../src/shared/stealth.js');
+const { realisticUserAgent, looksLikeBot, defaultHeaders, clientHints } = require('../src/shared/stealth.js');
 
 let pass = 0;
 let fail = 0;
@@ -44,6 +44,15 @@ const h = defaultHeaders('en-GB,en;q=0.9');
 ok('default headers include Accept-Language', h['Accept-Language'] === 'en-GB,en;q=0.9', JSON.stringify(h));
 ok('default headers include Sec-Fetch-* + Upgrade-Insecure-Requests',
   h['Sec-Fetch-Mode'] === 'navigate' && h['Upgrade-Insecure-Requests'] === '1', JSON.stringify(h));
+
+// Client hints must NOT mention Electron and must match the UA's Chrome version.
+const ch = clientHints(cleaned);
+ok('sec-ch-ua does not advertise Electron', !/Electron/i.test(ch['sec-ch-ua']), ch['sec-ch-ua']);
+ok('sec-ch-ua matches the UA Chrome major (130)', /"130"/.test(ch['sec-ch-ua']), ch['sec-ch-ua']);
+ok('sec-ch-ua names Google Chrome', /Google Chrome/.test(ch['sec-ch-ua']), ch['sec-ch-ua']);
+ok('sec-ch-ua-mobile is ?0 (desktop)', ch['sec-ch-ua-mobile'] === '?0', JSON.stringify(ch));
+ok('sec-ch-ua-platform reflects Windows for a Windows UA', ch['sec-ch-ua-platform'] === '"Windows"', JSON.stringify(ch));
+ok('a Mac UA yields a macOS platform hint', clientHints(mac)['sec-ch-ua-platform'] === '"macOS"', JSON.stringify(clientHints(mac)));
 
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

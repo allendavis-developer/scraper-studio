@@ -49,5 +49,24 @@
     };
   }
 
-  return { realisticUserAgent, looksLikeBot, defaultHeaders };
+  // The User-Agent Client Hints (Sec-CH-UA*) a real Chrome sends. CRITICAL:
+  // Electron's own value advertises `"Electron";v="…"`, which bot-protection
+  // flags even when the UA string looks clean — so these must OVERWRITE, not just
+  // fill in. Brand/version are derived from the (already-cleaned) UA so they stay
+  // consistent with it. Header NAMES are lowercase to match how Chromium emits
+  // them (so we replace rather than duplicate).
+  function clientHints(ua) {
+    const s = String(ua || '');
+    const major = (s.match(/Chrome\/(\d+)/) || [])[1] || '131';
+    let platform = 'Windows';
+    if (/Macintosh|Mac OS X/i.test(s)) platform = 'macOS';
+    else if (/Linux/i.test(s) && !/Android/i.test(s)) platform = 'Linux';
+    return {
+      'sec-ch-ua': `"Chromium";v="${major}", "Google Chrome";v="${major}", "Not?A_Brand";v="24"`,
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': `"${platform}"`
+    };
+  }
+
+  return { realisticUserAgent, looksLikeBot, defaultHeaders, clientHints };
 });

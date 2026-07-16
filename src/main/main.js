@@ -6,9 +6,14 @@ const { app, BrowserWindow, Menu, nativeTheme, ipcMain, dialog, session } = requ
 const path = require('path');
 const fs = require('fs');
 const { cookiePersistDetails } = require('../shared/session-cookies');
-const { realisticUserAgent, defaultHeaders } = require('../shared/stealth');
+const { realisticUserAgent, defaultHeaders, clientHints } = require('../shared/stealth');
 
 const isDev = process.argv.includes('--dev');
+
+// Remove the "controlled by automation" tell: this makes navigator.webdriver
+// undefined and drops the automation banner, so pages don't see us as a bot.
+// (Must be set before the app is ready.)
+app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 
 // A clean desktop-Chrome User-Agent (no "Electron/…" / app-name tokens), so
 // bot-protection (Cloudflare, etc.) doesn't block us on sight. Derived from
@@ -47,12 +52,23 @@ function hardenSession(ses) {
   } catch (_) {}
   try {
     const extra = defaultHeaders('en-GB,en;q=0.9');
+    const hints = clientHints(STEALTH_UA);
     ses.webRequest.onBeforeSendHeaders((details, cb) => {
       const h = details.requestHeaders;
-      // Never override the Electron "Electron" token if it somehow reappears.
+      // Force the clean UA if the Electron/app token ever reappears.
       if (/Electron|scrape-?studio/i.test(h['User-Agent'] || '')) h['User-Agent'] = STEALTH_UA;
+      // Fill in the headers a real Chrome sends, without clobbering real values.
       for (const k of Object.keys(extra)) {
-        if (h[k] == null) h[k] = extra[k]; // fill in without clobbering real values
+        if (h[k] == null) h[k] = extra[k];
+      }
+      // OVERWRITE the client hints — Electron's advertise `"Electron";v=…`, the
+      // single biggest tell after the UA. Delete any case-variant first so we
+      // replace rather than duplicate the header.
+      for (const k of Object.keys(hints)) {
+        for (const existing of Object.keys(h)) {
+          if (existing.toLowerCase() === k) delete h[existing];
+        }
+        h[k] = hints[k];
       }
       cb({ requestHeaders: h });
     });
