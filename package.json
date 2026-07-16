@@ -44,7 +44,8 @@
       {
         "provider": "github",
         "owner": "allendavis-developer",
-        "repo": "scraper-studio"
+        "repo": "scraper-studio",
+        "releaseType": "release"
       }
     ],
     "win": {
