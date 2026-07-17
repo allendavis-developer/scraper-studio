@@ -899,6 +899,7 @@ function stepDetail(s) {
       return active.length ? `${base} · where ${filterSummary(s.filter)}` : base;
     }
     case 'forDates':
+      if (s.mode === 'weeks') return `weeks ${s.weekFrom}–${s.weekTo} of ${s.year} → {{${s.var || 'date'}}}`;
       if (!s.from) return '(set a date range)';
       return `${s.from} → ${s.to || s.from}${Number(s.stepDays) > 1 ? `, every ${s.stepDays}d` : ''} → {{${s.var || 'date'}}}`;
     case 'if':
@@ -1862,8 +1863,13 @@ const BLANK = {
   // dropped in as a CSV column so every row is dated.
   forDates: () => ({
     type: 'forDates',
+    mode: 'dates',            // 'dates' (from/to calendar) | 'weeks' (week-number range)
     from: '',
     to: '',
+    year: new Date().getFullYear(),
+    weekFrom: 1,
+    weekTo: 1,
+    weekStyle: 'iso',         // 'iso' (Mon–Sun, wk1 contains Jan 4) | 'jan1' (7-day blocks from Jan 1)
     stepDays: 1,
     var: 'date',
     format: 'YYYY-MM-DD',
@@ -3958,13 +3964,52 @@ function buildEditorBody(s, root) {
   if (s.type === 'forDates') {
     const preview = el('div', { className: 'hint' });
 
+    // How the range is specified: calendar dates, or a range of week numbers.
+    const modeSel = select(s.mode === 'weeks' ? 'weeks' : 'dates', [
+      { value: 'dates', label: 'Calendar dates — pick a From and To date' },
+      { value: 'weeks', label: 'Week numbers — from week N to week M' }
+    ]);
+    root.append(field('Choose dates by', modeSel));
+
+    // --- Calendar-date fields ---
     const from = el('input', { type: 'date', value: s.from || '' });
     from.addEventListener('input', () => { s.from = from.value; refresh(); });
-    root.append(field('From date', from));
+    const fromField = field('From date', from);
 
     const to = el('input', { type: 'date', value: s.to || '' });
     to.addEventListener('input', () => { s.to = to.value; refresh(); });
-    root.append(field('To date (inclusive)', to));
+    const toField = field('To date (inclusive)', to);
+
+    // --- Week-number fields ---
+    const yearIn = el('input', { type: 'number', value: s.year || new Date().getFullYear() });
+    yearIn.addEventListener('input', () => { s.year = Math.trunc(+yearIn.value) || new Date().getFullYear(); refresh(); });
+    const yearField = field('Year', yearIn);
+
+    const wFrom = el('input', { type: 'number', min: 1, max: 53, value: s.weekFrom || 1 });
+    wFrom.addEventListener('input', () => { s.weekFrom = Math.min(53, Math.max(1, +wFrom.value || 1)); refresh(); });
+    const wFromField = field('From week', wFrom);
+
+    const wTo = el('input', { type: 'number', min: 1, max: 53, value: s.weekTo || 1 });
+    wTo.addEventListener('input', () => { s.weekTo = Math.min(53, Math.max(1, +wTo.value || 1)); refresh(); });
+    const wToField = field('To week (inclusive)', wTo,
+      'Week 1 to week 1 does that whole week; week 1 to 43 does every day from week 1 through week 43.');
+
+    const styleSel = select(s.weekStyle === 'jan1' ? 'jan1' : 'iso', [
+      { value: 'iso', label: 'ISO weeks — Mon–Sun (week 1 contains Jan 4)' },
+      { value: 'jan1', label: 'From Jan 1 — 7-day blocks (week 1 = Jan 1–7)' }
+    ]);
+    styleSel.addEventListener('change', () => { s.weekStyle = styleSel.value; refresh(); });
+    const styleField = field('Week numbering', styleSel, 'Not sure? The preview below shows the exact dates.');
+
+    root.append(fromField, toField, yearField, wFromField, wToField, styleField);
+
+    function applyMode() {
+      const weeks = s.mode === 'weeks';
+      fromField.style.display = toField.style.display = weeks ? 'none' : '';
+      yearField.style.display = wFromField.style.display = wToField.style.display = styleField.style.display = weeks ? '' : 'none';
+    }
+    modeSel.addEventListener('change', () => { s.mode = modeSel.value; applyMode(); refresh(); });
+    applyMode();
 
     const stepN = el('input', { type: 'number', min: 1, value: s.stepDays || 1 });
     stepN.addEventListener('input', () => { s.stepDays = Math.max(1, +stepN.value || 1); refresh(); });
@@ -4014,13 +4059,19 @@ function buildEditorBody(s, root) {
       varField.querySelector('.hint') && varField.querySelector('.hint').remove();
       varField.append(el('div', { className: 'hint', textContent:
         `Use it anywhere with {{${(s.var || 'date').trim() || 'date'}}} — in a URL, a field, or a formula.` }));
-      const dates = enumerateDates(s.from, s.to, s.stepDays, s.format);
+      const range = forDatesRange(s);
+      const dates = enumerateDates(range.from, range.to, s.stepDays, s.format);
       if (!dates.length) {
-        preview.textContent = '⚠ Set a valid From and To date.';
+        preview.textContent = s.mode === 'weeks'
+          ? '⚠ Set a year and valid week numbers.'
+          : '⚠ Set a valid From and To date.';
         return;
       }
       const shown = dates.slice(0, 6).join(' · ');
-      preview.textContent = `Runs ${dates.length} time${dates.length === 1 ? '' : 's'}: ${shown}${dates.length > 6 ? ' · …' : ''}`;
+      const head = s.mode === 'weeks'
+        ? `Weeks ${Math.min(s.weekFrom, s.weekTo)}–${Math.max(s.weekFrom, s.weekTo)} of ${s.year} = ${range.from} → ${range.to}. `
+        : '';
+      preview.textContent = `${head}Runs ${dates.length} time${dates.length === 1 ? '' : 's'}: ${shown}${dates.length > 6 ? ' · …' : ''}`;
     }
     refresh();
   }
@@ -5225,11 +5276,13 @@ async function execStep(s, ctx) {
     }
 
     case 'forDates': {
-      const dates = enumerateDates(ip(s.from), ip(s.to), s.stepDays, s.format);
+      const range = forDatesRange(s, ip);
+      const dates = enumerateDates(range.from, range.to, s.stepDays, s.format);
       const cap = s.maxIter || 1000;
       const name = (s.var || 'date').trim() || 'date';
       const asCol = s.asColumn !== false;
-      log(`  for each date ${s.from || '?'} → ${s.to || s.from || '?'}: ${dates.length} date(s)`, dates.length ? 'info' : 'warn');
+      const src = s.mode === 'weeks' ? `weeks ${s.weekFrom}–${s.weekTo} of ${s.year} (${range.from} → ${range.to})` : `${range.from || '?'} → ${range.to || range.from || '?'}`;
+      log(`  for each date ${src}: ${dates.length} date(s)`, dates.length ? 'info' : 'warn');
       const outerBase = ctx.rowBase;
       for (let k = 0; k < dates.length && k < cap && !abortRun; k++) {
         const d = dates[k];
@@ -5593,6 +5646,53 @@ function enumerateDates(from, to, stepDays, format) {
     cur = EXPR.dateAdd(cur, step);
   }
   return out;
+}
+
+// --- "For each date" by WEEK NUMBER ---------------------------------------
+// Two conventions, both selectable in the editor:
+//   'iso'  — ISO-8601: weeks run Mon–Sun, week 1 is the week containing Jan 4.
+//   'jan1' — simple 7-day blocks: week 1 = Jan 1–7, week 2 = Jan 8–14, …
+// UTC math throughout so a machine's timezone can't shift a day.
+function ymdUTC(d) {
+  return d.getUTCFullYear() + '-' +
+    String(d.getUTCMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getUTCDate()).padStart(2, '0');
+}
+function isoWeekMonday(year, week) {
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const dow = (jan4.getUTCDay() + 6) % 7; // 0=Mon … 6=Sun
+  const mon1 = new Date(jan4);
+  mon1.setUTCDate(jan4.getUTCDate() - dow); // Monday of ISO week 1
+  const d = new Date(mon1);
+  d.setUTCDate(mon1.getUTCDate() + (week - 1) * 7);
+  return d;
+}
+const clampWeek = (n) => Math.min(53, Math.max(1, Math.trunc(Number(n) || 1)));
+
+// A week-number range → an inclusive {from,to} calendar range (first day of the
+// first week to the last day of the last week). Weeks are normalised so a
+// from>to (e.g. 43→1) still yields a sensible forward range.
+function weekRangeDates(year, weekFrom, weekTo, style) {
+  const y = Math.trunc(Number(year)) || new Date().getFullYear();
+  let a = clampWeek(weekFrom), b = clampWeek(weekTo);
+  if (a > b) { const t = a; a = b; b = t; }
+  if (style === 'jan1') {
+    const jan1 = new Date(Date.UTC(y, 0, 1));
+    const from = new Date(jan1); from.setUTCDate(jan1.getUTCDate() + (a - 1) * 7);
+    const to = new Date(jan1); to.setUTCDate(jan1.getUTCDate() + (b * 7 - 1));
+    return { from: ymdUTC(from), to: ymdUTC(to) };
+  }
+  const from = isoWeekMonday(y, a);
+  const to = isoWeekMonday(y, b); to.setUTCDate(to.getUTCDate() + 6); // Sunday of last week
+  return { from: ymdUTC(from), to: ymdUTC(to) };
+}
+
+// Resolve a forDates step to a concrete {from,to}, honouring its mode. `interp`
+// (optional) interpolates {{…}} in the calendar-date fields at run time.
+function forDatesRange(s, interp) {
+  if (s.mode === 'weeks') return weekRangeDates(s.year, s.weekFrom, s.weekTo, s.weekStyle);
+  const ip = interp || ((x) => x);
+  return { from: ip(s.from), to: ip(s.to) };
 }
 
 // --- Run helpers -----------------------------------------------------------
