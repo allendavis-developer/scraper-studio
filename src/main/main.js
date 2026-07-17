@@ -55,6 +55,24 @@ function notifyRenderer(state, extra) {
   }
 }
 
+const isRateLimit = (err) => /\b429\b|too many requests|rate limit/i.test(String((err && err.message) || err || ''));
+
+// Turn an electron-updater error into ONE friendly line. Update errors from
+// GitHub embed the entire HTML response (kilobytes) in .message — never surface
+// that raw. The common case by far is a transient 429 rate-limit.
+function describeUpdateError(err) {
+  const raw = String((err && err.message) || err || 'unknown error');
+  if (isRateLimit(err)) {
+    return 'GitHub is temporarily rate-limiting update checks from this network (HTTP 429). ' +
+      'It clears on its own — usually within a few minutes to an hour. The app keeps working; just try again later.';
+  }
+  if (/ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNREFUSED|net::|getaddrinfo/i.test(raw)) {
+    return 'Could not reach the update server — check your internet connection and try again.';
+  }
+  const firstLine = raw.split('\n')[0].trim();
+  return firstLine.length > 200 ? firstLine.slice(0, 200) + '…' : firstLine;
+}
+
 function wireUpdaterEvents() {
   if (updaterReady) return;
   updaterReady = true;
@@ -117,14 +135,14 @@ function wireUpdaterEvents() {
 
   autoUpdater.on('error', (err) => {
     updLog('ERROR', err == null ? 'unknown error' : (err.stack || err.message || err));
-    notifyRenderer('error', { message: err && err.message ? err.message : String(err) });
+    notifyRenderer('error', { message: describeUpdateError(err), rateLimited: isRateLimit(err) });
     if (interactiveCheck) {
       interactiveCheck = false;
       dialog.showMessageBox(updaterWin, {
-        type: 'error',
-        title: 'Update check failed',
-        message: 'Could not check for updates.',
-        detail: (err && err.message ? err.message : String(err)) + `\n\nLog: ${updaterLogPath()}`,
+        type: isRateLimit(err) ? 'info' : 'error',
+        title: isRateLimit(err) ? 'Try again shortly' : 'Update check failed',
+        message: isRateLimit(err) ? 'Update check is rate-limited right now.' : 'Could not check for updates.',
+        detail: describeUpdateError(err) + `\n\nDetails are in the update log (Help ▸ Open Update Log).`,
       });
     }
   });
@@ -134,6 +152,19 @@ function initAutoUpdate(win) {
   updaterWin = win;
   if (isDev || !app.isPackaged) return; // nothing to update in a dev checkout
   wireUpdaterEvents();
+  // Throttle the automatic launch check: at most once every few hours. Rapid
+  // restarts (or a burst of launches) must not hammer GitHub into a 429
+  // secondary rate-limit. The manual "Check for updates" button is never
+  // throttled — an explicit click always checks.
+  const THROTTLE_MS = 3 * 60 * 60 * 1000; // 3 hours
+  const stamp = path.join(app.getPath('userData'), '.last-update-check');
+  let last = 0;
+  try { last = Number(fs.readFileSync(stamp, 'utf8')) || 0; } catch (_) {}
+  if (Date.now() - last < THROTTLE_MS) {
+    updLog('INFO', 'launch check skipped — checked within the last few hours');
+    return;
+  }
+  try { fs.writeFileSync(stamp, String(Date.now())); } catch (_) {}
   updLog('INFO', `launch check - current version ${app.getVersion()}`);
   autoUpdater.checkForUpdates().catch((e) => updLog('ERROR', e));
 }
@@ -155,12 +186,13 @@ function checkForUpdatesInteractive() {
   updLog('INFO', 'manual update check requested');
   autoUpdater.checkForUpdates().catch((e) => {
     updLog('ERROR', e);
+    if (!interactiveCheck) return; // the 'error' event already showed the dialog
     interactiveCheck = false;
     dialog.showMessageBox(updaterWin, {
-      type: 'error',
-      title: 'Update check failed',
-      message: 'Could not check for updates.',
-      detail: (e && e.message ? e.message : String(e)) + `\n\nLog: ${updaterLogPath()}`,
+      type: isRateLimit(e) ? 'info' : 'error',
+      title: isRateLimit(e) ? 'Try again shortly' : 'Update check failed',
+      message: isRateLimit(e) ? 'Update check is rate-limited right now.' : 'Could not check for updates.',
+      detail: describeUpdateError(e) + `\n\nDetails are in the update log (Help ▸ Open Update Log).`,
     });
   });
 }
@@ -176,7 +208,7 @@ ipcMain.handle('updates:check', () => {
   updLog('INFO', 'manual update check (button)');
   autoUpdater.checkForUpdates().catch((e) => {
     updLog('ERROR', e);
-    notifyRenderer('error', { message: e && e.message ? e.message : String(e) });
+    notifyRenderer('error', { message: describeUpdateError(e), rateLimited: isRateLimit(e) });
   });
   return { ok: true };
 });

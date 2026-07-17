@@ -6896,8 +6896,10 @@ function applyTheme(theme) {
       reset('Dev build — updates only in the installed app');
       revertTimer = setTimeout(() => setMsg(''), 6000);
     } else if (state === 'error') {
-      reset('Check failed — please try again shortly');
-      revertTimer = setTimeout(() => setMsg(''), 8000);
+      reset(s.rateLimited
+        ? 'GitHub is rate-limiting update checks — please try again later'
+        : (s.message || 'Check failed — please try again shortly'));
+      revertTimer = setTimeout(() => setMsg(''), 10000);
     }
   });
 
