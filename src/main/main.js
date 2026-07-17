@@ -28,7 +28,12 @@ function updaterLogPath() {
 }
 
 function updLog(level, msg) {
-  const text = msg && msg.stack ? msg.stack : (typeof msg === 'object' ? JSON.stringify(msg) : String(msg));
+  let text = msg && msg.stack ? msg.stack : (typeof msg === 'object' ? JSON.stringify(msg) : String(msg));
+  // Keep the log readable: GitHub error responses embed a multi-KB HTML page,
+  // and electron-updater logs the same error again internally — truncate so a
+  // single failure can't bloat the log to tens of KB.
+  text = text.replace(/\s+/g, ' ').trim();
+  if (text.length > 400) text = text.slice(0, 400) + '...';
   const line = `[${new Date().toISOString()}] ${level} ${text}\n`;
   try { fs.appendFileSync(updaterLogPath(), line); } catch (_) {}
   try { console.log('[auto-update]', level, text); } catch (_) {}
@@ -57,7 +62,7 @@ function wireUpdaterEvents() {
   autoUpdater.autoInstallOnAppQuit = true;  // fallback: apply it on next normal quit
 
   autoUpdater.on('checking-for-update', () => {
-    updLog('INFO', 'checking for update…');
+    updLog('INFO', 'checking for update');
     notifyRenderer('checking');
   });
 
@@ -127,7 +132,7 @@ function initAutoUpdate(win) {
   updaterWin = win;
   if (isDev || !app.isPackaged) return; // nothing to update in a dev checkout
   wireUpdaterEvents();
-  updLog('INFO', `launch check — current version ${app.getVersion()}`);
+  updLog('INFO', `launch check - current version ${app.getVersion()}`);
   autoUpdater.checkForUpdates().catch((e) => updLog('ERROR', e));
 }
 
