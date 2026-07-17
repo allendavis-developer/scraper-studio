@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sales &amp; Income Summary</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; }
+      .card-content { max-width: 1000px; padding: 20px; border: 1px solid #e5e5e5; border-radius: 6px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { padding: 8px 12px; border-bottom: 1px solid #eee; text-align: center; }
+      th:first-child, td:first-child { text-align: left; }
+      .text-danger th { color: #e05c5c; }
+      tr.total td { font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <!-- The user's real markup, verbatim. -->
+    <div class="card-content">
+      <h5>Sales &amp; Income Summary</h5>
+      <table class="table table-compressed table-hover">
+        <thead>
+          <tr class="text-danger">
+            <th>Type</th>
+            <th>Gross</th>
+            <th>VAT</th>
+            <th>Net</th>
+            <th>Cost</th>
+            <th>Margin</th>
+            <th>Percent</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Graded Sales</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>0%</td>
+          </tr>
+          <tr>
+            <td>Second Hand Sales</td>
+            <td>£511.09</td>
+            <td>£42.39</td>
+            <td>£468.70</td>
+            <td>£256.75</td>
+            <td>£211.95</td>
+            <td>45.22%</td>
+          </tr>
+          <tr>
+            <td>Refunds</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>0%</td>
+          </tr>
+          <tr>
+            <td>Stock Adjustments</td>
+            <td class="empty"></td>
+            <td class="empty"></td>
+            <td class="empty"></td>
+            <td>£0</td>
+            <td>£0</td>
+            <td class="empty"></td>
+          </tr>
+          <tr>
+            <td>Scrap Gold</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>£0</td>
+            <td>0%</td>
+          </tr>
+          <tr class="total">
+            <td>Subtotal</td>
+            <td>£511.09</td>
+            <td>£42.39</td>
+            <td>£468.70</td>
+            <td>£256.75</td>
+            <td>£211.95</td>
+            <td>45.22%</td>
+          </tr>
+          <tr>
+            <td>Buyback Fees</td>
+            <td>£302.15</td>
+            <td>£50.36</td>
+            <td class="empty"></td>
+            <td class="empty"></td>
+            <td>£251.79</td>
+            <td class="empty"></td>
+          </tr>
+          <tr>
+            <td>Cheque Commission</td>
+            <td class="empty"></td>
+            <td class="empty"></td>
+            <td class="empty"></td>
+            <td class="empty"></td>
+            <td>£0</td>
+            <td class="empty"></td>
+          </tr>
+          <tr class="total">
+            <td>Total</td>
+            <td class="empty"></td>
+            <td class="empty"></td>
+            <td class="empty"></td>
+            <td class="empty"></td>
+            <td>£463.74</td>
+            <td class="empty"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- A rows-down "long" table: the pivot target. One row per user; we want
+         it spread into one COLUMN per user on the output row. -->
+    <div class="card-content">
+      <h5>Sales by User</h5>
+      <table class="table by-user">
+        <thead>
+          <tr class="text-danger">
+            <th>User</th>
+            <th>Refunds</th>
+            <th>Total</th>
+            <th>Margin</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Cerys</td><td>£0</td><td>£110</td><td>40.98%</td></tr>
+          <tr><td>Charlie2</td><td>£0</td><td>£12.99</td><td>-105.62%</td></tr>
+          <tr><td>Sobaan</td><td>£0</td><td>£130</td><td>57.14%</td></tr>
+          <tr><td>harmonyA</td><td>£0</td><td>£511</td><td>30.08%</td></tr>
+          <tr class="total"><td>Totals</td><td>£0</td><td>£763.99</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>

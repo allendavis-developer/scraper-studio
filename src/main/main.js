@@ -5,9 +5,11 @@
 const { app, BrowserWindow, Menu, nativeTheme, ipcMain, dialog, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
 const { autoUpdater } = require('electron-updater');
 const { cookiePersistDetails } = require('../shared/session-cookies');
 const { realisticUserAgent, userAgentMetadata } = require('../shared/stealth');
+const { buildSeedJobs } = require('../shared/seed-jobs');
 
 const isDev = process.argv.includes('--dev');
 
@@ -298,6 +300,8 @@ function buildMenu(win) {
     {
       label: 'Help',
       submenu: [
+        { label: 'User Guide & Tutorials', accelerator: 'F1', click: () => openHelpWindow() },
+        { type: 'separator' },
         { label: 'Check for Updates…', click: () => checkForUpdatesInteractive() },
         {
           label: 'Open Update Log',
@@ -343,11 +347,63 @@ function createWindow() {
   return win;
 }
 
+// The bundled "Sales & Income Summary" table used by the seeded report jobs.
+function reportFixtureUrl() {
+  return pathToFileURL(path.join(__dirname, '..', 'renderer', 'examples', 'report.html')).toString();
+}
+
+// Seed the example jobs into the job store on first launch, so a new operator
+// opens the app to a dashboard of runnable, studyable examples. A marker file
+// means we only do this once — if they delete the examples, they stay deleted.
+function seedExamplesOnce() {
+  try {
+    const marker = path.join(app.getPath('userData'), '.examples-seeded');
+    if (fs.existsSync(marker)) return;
+    const dir = jobsDir();
+    const now = Date.now();
+    for (const j of buildSeedJobs(reportFixtureUrl())) {
+      const p = path.join(dir, j.id + '.json');
+      if (fs.existsSync(p)) continue; // never clobber a job the user already has
+      fs.writeFileSync(p, JSON.stringify({ ...j, columns: [], createdAt: now, updatedAt: now }, null, 2), 'utf8');
+    }
+    fs.writeFileSync(marker, new Date().toISOString(), 'utf8');
+  } catch (e) {
+    try { console.error('[seed]', e && e.message ? e.message : e); } catch (_) {}
+  }
+}
+
+// The Help & Tutorials window — a large, standalone reference window opened from
+// the Help menu. Loads the self-contained guide in src/help. Single instance:
+// if it's already open we just focus it.
+let helpWin = null;
+function openHelpWindow() {
+  if (helpWin && !helpWin.isDestroyed()) { helpWin.focus(); return; }
+  helpWin = new BrowserWindow({
+    width: 1280,
+    height: 900,
+    minWidth: 720,
+    minHeight: 560,
+    title: 'Scrape Studio — Help & Tutorials',
+    backgroundColor: '#f4f5f7',
+    autoHideMenuBar: true,
+    webPreferences: { contextIsolation: true, nodeIntegration: false }
+  });
+  helpWin.setMenuBarVisibility(false);
+  // External links open in the user's real browser, not inside the help window.
+  helpWin.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url)) { require('electron').shell.openExternal(url); return { action: 'deny' }; }
+    return { action: 'allow' };
+  });
+  helpWin.loadFile(path.join(__dirname, '..', 'help', 'index.html'));
+  helpWin.on('closed', () => { helpWin = null; });
+}
+
 app.whenReady().then(() => {
   // Force visited web pages (and the webview) to report a light color scheme,
   // so sites that honor prefers-color-scheme render in light mode by default.
   // Our own UI theme is driven separately by the data-theme attribute.
   nativeTheme.themeSource = 'light';
+  seedExamplesOnce();
   const win = createWindow();
   initAutoUpdate(win);
 

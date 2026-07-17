@@ -6,3 +6,7 @@ out/
 recipes/*.json
 exports/
 test/output/
+
+# Annotated help figures are copied into src/help/img (which ships); the
+# build/ copies are regenerable from raw/ + spec.js via annotate-help-shots.js
+build/help-shots/annotated/

@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Scrape Studio — Help &amp; Tutorials</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --line: #d8dbe1; --line-2: #c5c9d1;
+    --text: #1b1e26; --dim: #5f6570; --accent: #2b579a; --accent-2: #1e3f70;
+    --accent-dim: #eaf1fb; --green: #2e9e4b; --red: #cf3b30; --amber: #a9791a;
+    --code-bg: #eef0f3;
+    --mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
+    --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 15px/1.65 var(--sans); color: var(--text); background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Layout: fixed sidebar + scrolling content */
+  .layout { display: grid; grid-template-columns: 288px 1fr; min-height: 100%; }
+  nav.toc {
+    position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+    background: var(--panel); border-right: 1px solid var(--line); padding: 20px 16px 40px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; }
+  .brand .logo { font-size: 26px; }
+  .brand .name { font-weight: 700; font-size: 17px; letter-spacing: .2px; }
+  .brand .sub { color: var(--dim); font-size: 12px; }
+  nav.toc .group { text-transform: uppercase; font-size: 11px; letter-spacing: .8px;
+    color: var(--dim); margin: 18px 8px 6px; font-weight: 700; }
+  nav.toc a { display: block; padding: 6px 10px; border-radius: 7px; color: var(--text);
+    font-size: 13.5px; }
+  nav.toc a:hover { background: var(--code-bg); text-decoration: none; }
+  nav.toc a.active { background: var(--accent-dim); color: var(--accent-2); font-weight: 600; }
+
+  main { padding: 0 0 120px; max-width: 980px; }
+  .wrap { padding: 0 48px; }
+  header.hero {
+    padding: 56px 48px 40px; background: linear-gradient(135deg, #2b579a, #1e3f70);
+    color: #fff; border-bottom: 1px solid var(--accent-2);
+  }
+  header.hero h1 { margin: 0 0 8px; font-size: 34px; letter-spacing: .3px; }
+  header.hero p { margin: 0; font-size: 17px; opacity: .92; max-width: 640px; }
+
+  section { padding-top: 40px; scroll-margin-top: 12px; }
+  section > h2 { font-size: 25px; margin: 8px 0 6px; padding-top: 8px; border-top: 1px solid var(--line);
+    padding-top: 28px; }
+  section:first-of-type > h2 { border-top: none; padding-top: 8px; }
+  h3 { font-size: 18px; margin: 26px 0 8px; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 10px 0; padding-left: 24px; }
+  li { margin: 5px 0; }
+  strong { font-weight: 650; }
+  code { font-family: var(--mono); background: var(--code-bg); padding: 1.5px 6px;
+    border-radius: 5px; font-size: 13px; }
+  kbd { font-family: var(--mono); font-size: 12px; background: #fff; border: 1px solid var(--line-2);
+    border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; }
+  pre { background: #14151a; color: #d7d9de; padding: 14px 16px; border-radius: 10px; overflow-x: auto;
+    font-family: var(--mono); font-size: 13px; line-height: 1.55; }
+  pre .c { color: #7f8593; }
+
+  figure { margin: 20px 0 8px; }
+  figure img { width: 100%; height: auto; display: block; border: 1px solid var(--line-2);
+    border-radius: 10px; box-shadow: 0 4px 20px rgba(20,30,60,.09); background: #fff; }
+  figure.narrow img { max-width: 520px; }
+  figure.mid img { max-width: 760px; }
+  figcaption { color: var(--dim); font-size: 13px; margin-top: 8px; text-align: center; }
+
+  .callout { border-radius: 10px; padding: 12px 16px 12px 44px; margin: 16px 0; position: relative;
+    font-size: 14px; }
+  .callout::before { position: absolute; left: 14px; top: 11px; font-size: 17px; }
+  .callout.tip { background: #eaf6ee; border: 1px solid #bfe3cb; }
+  .callout.tip::before { content: "💡"; }
+  .callout.warn { background: #fdf3e5; border: 1px solid #f0d9b0; }
+  .callout.warn::before { content: "⚠️"; }
+  .callout.note { background: var(--accent-dim); border: 1px solid #cfe0f7; }
+  .callout.note::before { content: "ℹ️"; }
+
+  .steps-num { counter-reset: st; list-style: none; padding-left: 0; }
+  .steps-num > li { counter-increment: st; position: relative; padding: 4px 0 4px 44px; margin: 14px 0; }
+  .steps-num > li::before { content: counter(st); position: absolute; left: 0; top: 2px;
+    width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff;
+    font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+
+  table.ref { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+  table.ref th, table.ref td { border: 1px solid var(--line); padding: 8px 11px; text-align: left; vertical-align: top; }
+  table.ref th { background: var(--code-bg); font-weight: 650; }
+  table.ref td:first-child { white-space: nowrap; font-weight: 600; }
+
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--panel); }
+  .card h4 { margin: 0 0 4px; font-size: 15px; }
+  .card p { margin: 0; font-size: 13.5px; color: var(--dim); }
+  .pill { display:inline-block; font-size: 12px; font-weight:600; padding: 1px 8px; border-radius: 20px;
+    background: var(--accent-dim); color: var(--accent-2); margin-left: 6px; vertical-align: middle;}
+  footer { color: var(--dim); font-size: 13px; padding: 40px 48px; border-top: 1px solid var(--line); margin-top: 40px; }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc">
+    <div class="brand">
+      <span class="logo">🌾</span>
+      <div><div class="name">Scrape Studio</div><div class="sub">Help &amp; Tutorials</div></div>
+    </div>
+    <div class="group">Getting started</div>
+    <a href="#welcome">What is Scrape Studio?</a>
+    <a href="#screen">The screen at a glance</a>
+    <a href="#quickstart">Your first scrape (5 steps)</a>
+    <div class="group">Tutorials</div>
+    <a href="#t-list">Scrape a list of items</a>
+    <a href="#t-table">Grab a table in one pick</a>
+    <a href="#t-filter">Keep only some items (filter)</a>
+    <a href="#t-paginate">Scrape multiple pages</a>
+    <a href="#t-login">Log in, then scrape</a>
+    <div class="group">Features</div>
+    <a href="#f-picker">The element picker</a>
+    <a href="#f-columns">Columns &amp; CSV export</a>
+    <a href="#f-cleanup">Cleaning up text</a>
+    <a href="#f-map">The Map (flowchart)</a>
+    <a href="#f-signin">Sign-in &amp; 2FA</a>
+    <a href="#f-record">Record mode</a>
+    <a href="#f-share">Sharing jobs</a>
+    <a href="#f-updates">Updates</a>
+    <div class="group">Reference</div>
+    <a href="#examples">The example jobs</a>
+    <a href="#stepref">Every step, briefly</a>
+    <a href="#faq">Troubleshooting &amp; FAQ</a>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <h1>Scrape Studio — Help &amp; Tutorials</h1>
+      <p>A visual, point-and-click web scraper. Load any website, click the parts you want,
+         run it, and export a clean CSV. This guide walks through every common scenario with
+         real screenshots.</p>
+    </header>
+
+    <div class="wrap">
+
+      <section id="welcome">
+        <h2>What is Scrape Studio?</h2>
+        <p>Scrape Studio turns a website into a spreadsheet. You don't write code or hunt for
+           CSS selectors — you <strong>load a page in the built-in browser and click the things
+           you want</strong>. Scrape Studio watches what you click and builds a reusable
+           <em>program</em> of visual steps. Press <strong>Run</strong> and the rows fill in;
+           press <strong>Export CSV</strong> and you're done.</p>
+        <div class="cards">
+          <div class="card"><h4>No selectors, no code</h4><p>Click the title, the price, the link. The selector is written for you.</p></div>
+          <div class="card"><h4>A real browser</h4><p>Logins, cookies, JavaScript pages and search boxes all work — it's real Chromium.</p></div>
+          <div class="card"><h4>Reproducible jobs</h4><p>Every job remembers its start URL and steps, and auto-saves as you work.</p></div>
+          <div class="card"><h4>Clean CSV out</h4><p>Rename and reorder columns; money and percentages come out as real numbers.</p></div>
+        </div>
+        <div class="callout tip">New here? The fastest way to learn is to open one of the
+          <a href="#examples">example jobs</a> that ship with the app and press <strong>Run</strong>,
+          then open its <a href="#f-map">Map</a> to see how it's built.</div>
+      </section>
+
+      <section id="screen">
+        <h2>The screen at a glance</h2>
+        <p>Scrape Studio is a two-pane window. On the left you build your <strong>program</strong>;
+           on the right is a <strong>real browser</strong>, with your <strong>results</strong> and a
+           <strong>log</strong> below it.</p>
+        <figure>
+          <img src="img/anatomy.png" alt="The Scrape Studio window, annotated" />
+          <figcaption>The main window: (1) your steps, (2) the embedded browser, (3) results → CSV, (4) the run log.</figcaption>
+        </figure>
+        <ul>
+          <li><strong>Steps</strong> — your ordered list of actions. <strong>＋ Add step</strong> opens a directory of everything you can do.</li>
+          <li><strong>Browser</strong> — type a URL and press <strong>Go</strong>, or let a run drive it. <strong>▶ Run</strong> and <strong>● Record</strong> live in the browser bar so they're always in reach.</li>
+          <li><strong>Results</strong> — the rows you've scraped. <strong>⚙ Columns</strong> shapes them; <strong>⬇ Export CSV</strong> saves.</li>
+          <li><strong>Log</strong> — a narrated trace of the run <em>with the real values</em>, so a filter that drops everything is never a silent mystery.</li>
+        </ul>
+      </section>
+
+      <section id="quickstart">
+        <h2>Your first scrape in 5 steps</h2>
+        <p>We'll scrape a page of books into a CSV. It takes about a minute.</p>
+        <ol class="steps-num">
+          <li><strong>Create a job.</strong> On the dashboard press <strong>+ New scrape job</strong>, give it a name and a start URL (e.g. <code>https://books.toscrape.com/</code>), and press <strong>Create</strong>.
+            <figure class="mid"><img src="img/newjob.png" alt="New scrape job dialog" /><figcaption>Name it, give the start URL, press Create.</figcaption></figure>
+          </li>
+          <li><strong>Add a “Grab a list” step.</strong> Press <strong>＋ Add step</strong> and choose <strong>Grab a list</strong> (for repeating items like product cards).
+            <figure class="mid"><img src="img/addstep.png" alt="Add-step directory" /><figcaption>The step directory, grouped by what each step does.</figcaption></figure>
+          </li>
+          <li><strong>Pick one row, then pick its columns.</strong> Press <strong>Pick</strong> and click one book card. Then <strong>+ Add column</strong> and Pick the title, the price, the stock — <em>inside</em> the card.
+            <figure><img src="img/grab-list-editor.png" alt="Grab a list editor" /><figcaption>①  Pick one repeating row.  ②  Add a column and pick each value inside it.</figcaption></figure>
+          </li>
+          <li><strong>Run it.</strong> Press <strong>▶ Run</strong>. Rows fill the results table and the log narrates what happened.
+            <figure><img src="img/results.png" alt="Results table and log" /><figcaption>One clean row per item — and <code>price</code> is a real number, ready for Excel.</figcaption></figure>
+          </li>
+          <li><strong>Export.</strong> Optionally press <strong>⚙ Columns</strong> to rename/reorder, then <strong>⬇ Export CSV</strong>.</li>
+        </ol>
+        <div class="callout tip">That's the 90% case: <em>Grab a list → Pick the row → Pick the columns → Run → Export.</em> Everything else below is for pages that need a little more.</div>
+      </section>
+
+      <section id="t-list">
+        <h2>Tutorial: Scrape a list of items</h2>
+        <p><span class="pill">example: “Books — simple list”</span></p>
+        <p>Product cards, search results, directory listings — anything that <strong>repeats</strong> —
+           is a job for <strong>📋 Grab a list</strong>. You pick <em>one</em> item and Scrape Studio
+           generalizes it to match every sibling, then you pick the values you want from inside a row.</p>
+        <figure><img src="img/grab-list-editor.png" alt="Grab a list editor" /><figcaption>Pick one row (top), then add a column per value and pick it inside the row (below).</figcaption></figure>
+        <p>Because the column selectors are <strong>relative to the row</strong>, the title and price on
+           the same card always stay together — you get one aligned row per item.</p>
+        <div class="callout warn">Don't run two separate grabs for “all the titles” and “all the prices” — you'll get two unaligned lists. Always use <strong>one</strong> Grab-a-list with a column per value.</div>
+      </section>
+
+      <section id="t-table">
+        <h2>Tutorial: Grab a table in one pick</h2>
+        <p><span class="pill">examples: “Report table — line items only / every row”</span></p>
+        <p>An HTML table is the one shape a click-picker can't handle well (click a row and it also
+           matches the header). So <strong>📊 Grab a table</strong> doesn't guess — you point at the
+           table <em>once</em> (any cell) and it reads the table's own structure.</p>
+        <ol>
+          <li><strong>＋ Add step → 📊 Grab a table → Pick</strong>, then click any cell. Whole tables light up as you hover.</li>
+          <li>It fills in <strong>every column from the headers</strong>, sets money/percent columns to come out as <strong>numbers</strong>, and leaves out Subtotal/Total rows (a tick-box keeps them).</li>
+          <li><strong>Shape</strong> the columns (rename / drop / reorder / text-vs-number) with a live preview, then Run.</li>
+        </ol>
+        <figure><img src="img/results-table.png" alt="Report table results with numeric columns" /><figcaption>One pick read the whole table; <code>gross</code>, <code>vat</code>, <code>net</code>… come out as real numbers.</figcaption></figure>
+        <div class="callout warn">A blank cell in a <strong>Number</strong> column becomes <code>0</code>. If blank should mean “no value” (not zero), set that column to <strong>Text</strong>.</div>
+      </section>
+
+      <section id="t-filter">
+        <h2>Tutorial: Keep only some items (filter)</h2>
+        <p><span class="pill">example: “Books — only under £20”</span></p>
+        <p>To keep only items that match a rule, loop over them with <strong>🔄 For each</strong>,
+           grab the value to test, and use <strong>❓ If … → ⏭ Skip item</strong> to drop the ones you
+           don't want. One pass of the loop that <em>isn't</em> skipped commits one row — automatically.</p>
+        <pre><span class="c">For each  article.product_pod          (one pass per book = one row)</span>
+  Grab  price = .price_color  (Number)   <span class="c">→ a working value</span>
+  If    price ≥ 20  →  Skip item          <span class="c">← drops the pricey ones</span>
+  Grab  title = h3 a (title)              <span class="c">→ a column</span>
+                                          <span class="c">the row commits itself: { title }</span></pre>
+        <figure class="narrow"><img src="img/steps-filter.png" alt="Filter job steps" /><figcaption>The same program as visual steps — a module wrapping a For-each, If and Skip.</figcaption></figure>
+        <h3>How values flow</h3>
+        <p><code>price</code> is <em>produced</em> by the Grab step and <em>consumed</em> by the If. You never
+           wire that by hand — <strong>the name is the wire</strong>. Keep <code>price</code> as a
+           <strong>working value</strong> (used by the rule, kept out of the CSV) and <code>title</code> as a
+           <strong>column</strong> (what you export). See it drawn in the <a href="#f-map">Map</a>:</p>
+        <figure><img src="img/map.png" alt="Map showing the price data-flow wire" /><figcaption>Turn on <strong>Data flow</strong> and the green <code>price</code> wire runs from the Grab into the If.</figcaption></figure>
+      </section>
+
+      <section id="t-paginate">
+        <h2>Tutorial: Scrape multiple pages</h2>
+        <p><span class="pill">example: “Books — paginated”</span></p>
+        <p>There's no fixed “pagination” panel — you build a small loop that follows the
+           <strong>next</strong> link, which handles every kind of pager. The trick is a boolean value
+           (<code>more</code>) that drives a <strong>🔁 While</strong> loop:</p>
+        <pre>Grab  more = does <span class="c">.next a</span> exist?   <span class="c">→ working value (true/false)</span>
+While  more is true   <span class="c">(safety cap: 5)</span>
+    Grab a list  article.product_pod → title, price
+    Click  .next a          <span class="c">(go to the next page)</span>
+    Grab  more = does .next a exist?   <span class="c">(refresh the flag)</span></pre>
+        <figure class="narrow"><img src="img/steps-paginated.png" alt="Paginated job steps" /><figcaption>Each pass scrapes a page, clicks “next”, and re-checks whether another page exists.</figcaption></figure>
+        <p>Each pass's rows accumulate. When the last page has no <strong>next</strong> link, <code>more</code>
+           becomes false and the loop stops. Raise the safety cap to scrape more pages.</p>
+      </section>
+
+      <section id="t-login">
+        <h2>Tutorial: Log in, then scrape</h2>
+        <p><span class="pill">example: “Quotes — Log in, then scrape (Try/Recover)”</span></p>
+        <p>There are two ways to handle a site that needs a login:</p>
+        <ol>
+          <li><strong>Log in by hand once</strong> (best for real sites, 2FA, banks). Open the job and just sign in in the browser — it's remembered. See <a href="#f-signin">Sign-in &amp; 2FA</a>.</li>
+          <li><strong>Log in as steps</strong> (for simple username/password forms) — a <strong>📦 Task</strong> that goes to the login page, fills the fields, and clicks submit; then a second Task scrapes.</li>
+        </ol>
+        <p>Wrap the scrape in <strong>🛟 Try / Recover</strong> so a flaky page doesn't kill the whole run —
+           if the Try steps fail, the recovery steps run instead (with optional retries).</p>
+        <figure><img src="img/results-quotes.png" alt="Quotes results after login" /><figcaption>Logged in first, then scraped the quotes — guarded by Try / Recover.</figcaption></figure>
+      </section>
+
+      <section id="f-picker">
+        <h2>The element picker</h2>
+        <p>Picking always happens <strong>inside a step</strong>: press a step's <strong>Pick</strong> button,
+           the editor steps aside, and you point at the page. Hover to highlight, click to capture.</p>
+        <figure><img src="img/picker.png" alt="The picker highlighting a book card" /><figcaption>Hover highlights a whole item; the selector is written for you when you click.</figcaption></figure>
+        <ul>
+          <li><kbd>↑</kbd>/<kbd>↓</kbd> — grab a <strong>bigger/smaller box</strong> (e.g. the whole card vs. just the title).</li>
+          <li>Over a table, whole <strong>rows</strong> light up — hold <kbd>Alt</kbd> for a single cell.</li>
+          <li><kbd>Esc</kbd> — cancel picking.</li>
+        </ul>
+        <div class="callout tip">When picking a <strong>column inside a row</strong>, Scrape Studio shows a copy of one item in a little dialog and lets you click inside it — so it's always centred and unambiguous, no matter where the page is scrolled.</div>
+      </section>
+
+      <section id="f-columns">
+        <h2>Columns &amp; CSV export</h2>
+        <p>Press <strong>⚙ Columns</strong> to shape the CSV: tick/untick to include, rename a heading,
+           and use <kbd>↑</kbd>/<kbd>↓</kbd> to reorder. Then <strong>Apply</strong> and <strong>⬇ Export CSV</strong>.</p>
+        <figure class="mid"><img src="img/columns.png" alt="Shape CSV dialog" /><figcaption>Rename, drop and reorder columns before exporting.</figcaption></figure>
+        <p>Choose the file encoding next to the Export button — <strong>UTF-8 (Excel-ready)</strong> is the
+           safe default for opening cleanly in Excel (£, accents, etc.).</p>
+      </section>
+
+      <section id="f-cleanup">
+        <h2>Cleaning up text (no regex)</h2>
+        <p>Pages give you <code>Price: £1,024.50 (inc VAT)</code>, not <code>1024.5</code>. Every step that
+           reads the page has a <strong>Clean up the text</strong> list — clean-ups you pick from a dropdown
+           and apply in order:</p>
+        <table class="ref">
+          <tr><th>#</th><th>Clean-up</th><th>Result</th></tr>
+          <tr><td>1</td><td>Text between <code>£</code> and <code>(</code></td><td><code>1,024.50</code></td></tr>
+          <tr><td>2</td><td>Number — strip <code>£ $ , %</code></td><td><code>1024.5</code></td></tr>
+        </table>
+        <p>Press <strong>▶ Test on the page</strong> to see <em>“on the page: … → you get: 1024.5”</em> before you run.
+           Available clean-ups include: tidy spaces, lower/upper, <strong>Number</strong>, first/last number, round,
+           digits only, <strong>text between / after / before</strong>, split-and-take, replace, add at start/end,
+           pad, default-if-empty, <strong>dates</strong> (→ <code>2026-07-14</code>), and a raw regex for power users.</p>
+        <div class="callout note">A <strong>Number</strong> clean-up yields a real number, so <code>&lt;</code> / <code>&gt;</code> comparisons in rules work correctly.</div>
+      </section>
+
+      <section id="f-map">
+        <h2>The Map (flowchart)</h2>
+        <p>Press <strong>🗺 Map</strong> to see — and <em>edit</em> — your whole program as a Blueprint-style node
+           graph. It's the same job as the step list, shown two ways.</p>
+        <figure><img src="img/map-top.png" alt="Map top level, modules as nodes" /><figcaption>At the top level, each module is a single node. Double-click one to open its own graph.</figcaption></figure>
+        <figure><img src="img/map.png" alt="Map drilled in with data flow" /><figcaption>Inside a loop, with <strong>Data flow</strong> on: the green wire shows <code>price</code> flowing into the If.</figcaption></figure>
+        <ul>
+          <li>Node colour = the kind of step: <strong style="color:var(--green)">data</strong> · <strong style="color:var(--accent)">page action</strong> · <strong style="color:var(--amber)">control</strong> · <strong style="color:#7a3ea8">module</strong>.</li>
+          <li>Grey arrows = run order. Green links = data flow.</li>
+          <li>Drag to move · double-click to edit (or drill into a module/loop) · drag a node's right dot ▸ to another's left dot to set the order · breadcrumbs climb back out.</li>
+        </ul>
+      </section>
+
+      <section id="f-signin">
+        <h2>Sign-in &amp; staying logged in (incl. 2FA)</h2>
+        <p>Each job has its <strong>own browser session</strong>, saved to disk — so a login (including 2FA)
+           sticks across restarts and is reused on every run. Different jobs can be signed into different
+           sites or accounts independently.</p>
+        <figure class="narrow"><img src="img/signin.png" alt="Sign-in panel" /><figcaption>The 🔐 Sign-in panel — you rarely need more than “Log in to this site”.</figcaption></figure>
+        <ul>
+          <li><strong>🔓 Log in to this site</strong> — opens the browser so you sign in normally (2FA included). Done once, remembered.</li>
+          <li><strong>Forget this sign-in</strong> — wipe the session (sign out / switch account).</li>
+          <li><strong>Notice when I get signed out (optional)</strong> — Pick something only shown when logged in (your account menu). Every run checks it first; if you've been signed out, the run pauses and asks you to log in again instead of scraping nothing.</li>
+        </ul>
+        <div class="callout note">If a job logs in <em>with its own steps</em> (like the Quotes example), leave the “signed-in marker” blank so the pre-run check doesn't block that login.</div>
+      </section>
+
+      <section id="f-record">
+        <h2>Record mode</h2>
+        <p>For custom widgets that don't map to a single step — bespoke dropdowns, JavaScript date pickers,
+           multi-step controls — press <strong>● Record</strong>, do the actions yourself in the page, then
+           <strong>Stop</strong>. Scrape Studio translates what you did into its own editable steps.</p>
+        <figure><img src="img/record.png" alt="Record mode" /><figcaption>Record your actions on the page; they become ordinary, editable steps.</figcaption></figure>
+        <p>Typing becomes <strong>Fill field</strong>, a dropdown change becomes <strong>Select option</strong>,
+           Enter/Tab/Esc become <strong>Press key</strong>, and the real pauses become <strong>Delay</strong> steps you can retune.</p>
+      </section>
+
+      <section id="f-share">
+        <h2>Sharing jobs</h2>
+        <p>Press <strong>💾 Export job</strong> to save the whole scrape (start URL + steps + column shape +
+           sign-in config) as a portable <code>.job</code> file. Anyone can <strong>📂 Import job</strong> it
+           and get the exact same scrape.</p>
+        <div class="callout warn">A <code>.job</code> file does <strong>not</strong> contain cookies, passwords, or your logged-in session — only the <em>recipe</em>. For a login-gated site, whoever imports it signs in once themselves. (That's deliberate: you're sharing the scrape, not your credentials.)</div>
+      </section>
+
+      <section id="f-updates">
+        <h2>Updates</h2>
+        <p>Scrape Studio updates itself from its releases. When you launch the app it checks for a newer
+           version in the background; if one is found it downloads and offers to <strong>restart to update</strong>.</p>
+        <ul>
+          <li><strong>Help → Check for Updates…</strong> — check on demand; the result is shown in a dialog.</li>
+          <li><strong>Help → Open Update Log</strong> — see exactly what the updater did (useful if an update doesn't arrive).</li>
+        </ul>
+        <div class="callout note">The automatic check runs <em>at launch</em>. If the app is already open, restart it to pick up a new version.</div>
+      </section>
+
+      <section id="examples">
+        <h2>The example jobs</h2>
+        <p>Six runnable examples ship with Scrape Studio and appear on your dashboard the first time you open
+           it. Open any one, press <strong>▶ Run</strong>, then open its <strong>🗺 Map</strong> to study how it's built.</p>
+        <figure><img src="img/dashboard.png" alt="Dashboard with example jobs" /><figcaption>Your dashboard — the example jobs are ready to open and study.</figcaption></figure>
+        <table class="ref">
+          <tr><th>Example</th><th>Teaches</th></tr>
+          <tr><td>📊 Report table — line items only</td><td>Grabbing an HTML table in one pick; money as numbers</td></tr>
+          <tr><td>📊 Report table — every row</td><td>The same table, keeping Subtotal &amp; Total rows</td></tr>
+          <tr><td>📚 Books — simple list</td><td>The one-step list scrape (the 90% case)</td></tr>
+          <tr><td>📚 Books — only under £20</td><td>Module · For-each · If · Skip · data flow</td></tr>
+          <tr><td>💬 Quotes — Log in, then scrape</td><td>Two modules wired together, a login, and Try / Recover</td></tr>
+          <tr><td>📚 Books — paginated</td><td>A While loop driven by a data value</td></tr>
+        </table>
+        <div class="callout tip">These are yours to break — edit them, re-run, undo. If you ever want the originals back, they re-appear only on a fresh install, so consider <strong>💾 Export job</strong> before heavy edits.</div>
+      </section>
+
+      <section id="stepref">
+        <h2>Every step, briefly</h2>
+        <h3>Get the data</h3>
+        <table class="ref">
+          <tr><td>📥 Grab one value</td><td>Read one thing off the page into a named column (or working value): text / attribute / href / count / exists / page URL / a calculation.</td></tr>
+          <tr><td>📋 Grab a list</td><td>Pick one repeating row, then a column per value → many aligned rows at once.</td></tr>
+          <tr><td>📊 Grab a table</td><td>Point at an HTML table once; every column is read from its headers.</td></tr>
+        </table>
+        <h3>Do something on the page</h3>
+        <table class="ref">
+          <tr><td>🖱️ Click / 🔤 Click text</td><td>Click an element, or the element whose visible text matches (robust for tabs, calendar days).</td></tr>
+          <tr><td>🔽 Select option</td><td>Drive a native dropdown by visible text / value / index.</td></tr>
+          <tr><td>☑️ Check</td><td>Check / uncheck / toggle a checkbox or radio.</td></tr>
+          <tr><td>⌨️ Fill field</td><td>Type into a text / number / date field (works on React/Vue controlled inputs); optional press-Enter.</td></tr>
+          <tr><td>👆 Hover · ⌨ Press key</td><td>Reveal hover menus; send a real key event (Enter, Tab, arrows…).</td></tr>
+          <tr><td>⏱️ Delay · 👁️ Wait for</td><td>Pause a fixed time, or wait until an element appears.</td></tr>
+          <tr><td>↕️ Scroll · ⤓ Load all</td><td>Scroll to top / bottom / by N pixels, or keep scrolling until an infinite list stops growing.</td></tr>
+          <tr><td>🌐 Go to URL · ⬅️ Go back</td><td>Navigate somewhere (supports <code>{{variables}}</code>), or return to the previous page.</td></tr>
+        </table>
+        <h3>Repeat &amp; decide</h3>
+        <table class="ref">
+          <tr><td>❓ If / Else</td><td>Run a block when a visual condition is true.</td></tr>
+          <tr><td>🔄 For each</td><td>Run a block once per matching element; each pass makes a row.</td></tr>
+          <tr><td>🔁 While · 🔢 Repeat</td><td>Loop while a condition holds, or a fixed number of times (with an index variable).</td></tr>
+          <tr><td>⏭ Skip item · ⛔ Break</td><td>Drop the current item (no row), or exit the loop entirely.</td></tr>
+        </table>
+        <h3>Organize &amp; protect</h3>
+        <table class="ref">
+          <tr><td>📦 Task (module)</td><td>Group steps into a named, collapsible folder; save to the library and reuse anywhere.</td></tr>
+          <tr><td>🛟 Try / Recover</td><td>Run risky steps; if any fails, jump to recovery steps (with optional retries) instead of dying.</td></tr>
+        </table>
+      </section>
+
+      <section id="faq">
+        <h2>Troubleshooting &amp; FAQ</h2>
+        <h3>I ran it and got 0 rows.</h3>
+        <p>Read the <strong>log</strong> — it says why (e.g. a rule dropped everything, or the list selector matched nothing).
+           Open the Grab step and press <strong>Preview the rows</strong> / <strong>Test on the page</strong> to see live what it captures.</p>
+        <h3>The site keeps sending me to a login page.</h3>
+        <p>Open <strong>🔐 Sign-in → Log in to this site</strong> and sign in once (2FA included). It's remembered. See <a href="#f-signin">Sign-in &amp; 2FA</a>.</p>
+        <h3>My prices export as text like “£51.77”, not 51.77.</h3>
+        <p>Add a <strong>Number</strong> clean-up to that column (see <a href="#f-cleanup">Cleaning up text</a>).</p>
+        <h3>A search box clears itself when I type.</h3>
+        <p>Use <strong>Fill field</strong> (not a raw key send) — it writes through the native setter so modern React/Vue inputs keep the value, then <strong>Click</strong> the search button.</p>
+        <h3>The values come out unaligned (all titles, then all prices).</h3>
+        <p>Use <strong>one</strong> Grab-a-list with a column per value, not separate grabs. See <a href="#t-list">Scrape a list</a>.</p>
+        <h3>A widget is inside an iframe and I can't pick it.</h3>
+        <p>Cross-origin iframes aren't reachable yet in this version.</p>
+        <div class="callout note">Still stuck? Open the relevant <a href="#examples">example job</a> — it's a working reference for the same pattern.</div>
+      </section>
+
+    </div>
+    <footer>Scrape Studio — Help &amp; Tutorials. Screenshots are of the real app; example sites are
+      <a href="https://books.toscrape.com/">books.toscrape.com</a> and
+      <a href="https://quotes.toscrape.com/">quotes.toscrape.com</a> (public scraping-practice sites).</footer>
+  </main>
+</div>
+
+<script>
+  // Highlight the current section in the sidebar as you scroll.
+  const links = Array.from(document.querySelectorAll('nav.toc a'));
+  const map = new Map(links.map((a) => [a.getAttribute('href').slice(1), a]));
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) {
+        links.forEach((l) => l.classList.remove('active'));
+        const a = map.get(e.target.id);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('main section[id]').forEach((s) => obs.observe(s));
+</script>
+</body>
+</html>
