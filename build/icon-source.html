@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* ------------------------------------------------------------------ */
+  /* Scrape Studio app icon — pure CSS. A clean, symmetric "harvest"     */
+  /* wheat ear on a rounded blue tile, matching the app's Word-blue      */
+  /* palette (#2b579a) and 🌾 brand. Rendered to PNG/ICO by             */
+  /* build/render-icon.js. Authored at 1024px; scaled per render size.   */
+  /* ------------------------------------------------------------------ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: transparent; }
+
+  .stage {
+    width: 1024px;
+    height: 1024px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Rounded-square app tile with the app's blue gradient. */
+  .tile {
+    position: relative;
+    width: 1024px;
+    height: 1024px;
+    border-radius: 230px;
+    background:
+      radial-gradient(120% 120% at 30% 12%, #3f6cb5 0%, #2b579a 44%, #1c3c6b 100%);
+    overflow: hidden;
+    box-shadow: inset 0 8px 26px rgba(255, 255, 255, 0.20),
+                inset 0 -20px 55px rgba(0, 0, 0, 0.32);
+  }
+  /* Soft top-left sheen. */
+  .tile::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(68% 52% at 26% 14%, rgba(255,255,255,0.26), rgba(255,255,255,0) 62%);
+  }
+
+  /* The wheat, optically centred. */
+  .wheat {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    height: 720px;
+  }
+
+  /* Stalk — sits under the grains, centred on the ear. */
+  .stalk {
+    position: absolute;
+    left: 300px;
+    top: 350px;
+    width: 26px;
+    height: 340px;
+    margin-left: -13px;
+    border-radius: 13px;
+    background: linear-gradient(90deg, #a86a1a, #e0a331 42%, #f6cb5f 55%, #b9781f);
+  }
+
+  /* Each grain is a crisp almond (marquise) via clip-path — pointed top
+     and bottom, symmetric left-to-right. Position/rotation/scale are set
+     inline by the generator; every grain shares this base look. */
+  .grain {
+    position: absolute;
+    left: 300px;   /* stalk centre line */
+    top: 0;
+    width: 92px;
+    height: 188px;
+    transform-origin: 50% 100%;   /* pivot at the base, on the stalk */
+    background: linear-gradient(120deg, #f7d277 0%, #ecb841 46%, #cf9127 100%);
+    clip-path: path('M46 0 C74 46, 74 150, 46 188 C18 150, 18 46, 46 0 Z');
+  }
+  /* Bright seam highlight down the middle of each grain. */
+  .grain::after {
+    content: "";
+    position: absolute;
+    left: 44px;
+    top: 26px;
+    width: 5px;
+    height: 128px;
+    border-radius: 3px;
+    background: rgba(255, 247, 222, 0.7);
+  }
+
+  /* Two crossed green blades at the base tie in the app's green accent. */
+  .blade {
+    position: absolute;
+    left: 300px;
+    top: 590px;
+    width: 150px;
+    height: 46px;
+    transform-origin: 0 50%;
+    background: linear-gradient(90deg, #2e9e4b, #57b562);
+    clip-path: path('M0 23 C60 0, 120 6, 150 23 C120 40, 60 46, 0 23 Z');
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="tile">
+      <div class="wheat" id="wheat">
+        <div class="stalk"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Build a symmetric wheat ear: mirrored left/right grain pairs whose
+    // bases meet on the stalk and whose tips splay outward, plus a single
+    // upright tip grain. Bottom pairs are largest and splay most; grains
+    // shrink and stand more upright toward the tip.
+    const wheat = document.getElementById('wheat');
+
+    function grain({ y, rot, scale }) {
+      const g = document.createElement('div');
+      g.className = 'grain';
+      // Anchor the grain's bottom-centre on the stalk at (300, y), then
+      // rotate about that base and scale. Left/right differ only in sign.
+      g.style.transform =
+        `translate(-50%, -100%) translate(0, ${y}px) rotate(${rot}deg) scale(${scale})`;
+      wheat.appendChild(g);
+    }
+
+    // Crossed green blades first, so the grains sit on top.
+    for (const dir of [-1, 1]) {
+      const b = document.createElement('div');
+      b.className = 'blade';
+      b.style.transform = `translate(-1px, 0) scaleX(${dir}) rotate(-16deg)`;
+      wheat.appendChild(b);
+    }
+
+    const ROWS = 5;
+    for (let i = 0; i < ROWS; i++) {
+      const y = 540 - i * 60;           // base marches up the stalk
+      const scale = 0.92 - i * 0.07;    // grains shrink toward the tip
+      const rot = 40 - i * 6;           // splay eases toward upright
+      grain({ y, rot: -rot, scale });   // left
+      grain({ y, rot: rot, scale });    // right
+    }
+    // Upright tip grain.
+    grain({ y: 540 - ROWS * 60 + 26, rot: 0, scale: 0.62 });
+  </script>
+</body>
+</html>

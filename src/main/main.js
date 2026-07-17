@@ -171,6 +171,10 @@ function buildMenu(win) {
 }
 
 function createWindow() {
+  // In a dev checkout, give the window/taskbar our app icon. In packaged
+  // builds Windows uses the icon embedded in the .exe (from build/icon.ico),
+  // so a missing file here is fine — we just skip the option.
+  const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -178,6 +182,7 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#f4f5f7',
     title: 'Scrape Studio',
+    ...(fs.existsSync(iconPath) ? { icon: iconPath } : {}),
     webPreferences: {
       // The control UI runs with node integration off / context isolation on.
       // The <webview> tag must be explicitly enabled here.
