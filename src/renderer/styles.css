@@ -255,6 +255,46 @@ select {
   letter-spacing: 0.04em;
 }
 
+/* Software-update bar, directly under the brand header. Normally a quiet
+   "Check for updates" button; turns green ("Restart to update") when a new
+   version has downloaded. */
+.updbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+.updbtn {
+  font: 600 11px/1 "Segoe UI", system-ui, sans-serif;
+  padding: 5px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.updbtn:hover:not(:disabled) { border-color: var(--hover-border); }
+.updbtn:disabled { opacity: 0.6; cursor: default; }
+.update-msg {
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* "ready to install" — make it unmissable. */
+.updbar.ready .updbtn {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.updbar.ready .update-msg { color: var(--green); font-weight: 600; }
+
 .panel {
   padding: 8px 12px;
   border-bottom: 1px solid var(--line);

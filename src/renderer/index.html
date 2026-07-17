@@ -26,6 +26,14 @@
         </div>
       </header>
 
+      <!-- Software-update bar: click to check; becomes "Restart to update" when
+           a new version has downloaded. Always visible so it's easy to point
+           users to. -->
+      <div class="updbar" id="updbar">
+        <button id="update-btn" class="updbtn" title="Check for a newer version of Scrape Studio">⭮ Check for updates</button>
+        <span id="update-msg" class="update-msg"></span>
+      </div>
+
       <div class="panel job-bar">
         <div class="jb-row">
           <input id="start-url" placeholder="Start URL — opened at every run" spellcheck="false" />

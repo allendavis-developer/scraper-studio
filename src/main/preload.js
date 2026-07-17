@@ -36,5 +36,12 @@ contextBridge.exposeInMainWorld('harvest', {
   // Per-job sign-in sessions.
   auth: {
     clear: (partition) => ipcRenderer.invoke('auth:clear', partition)
+  },
+  // In-app software updates (the Update button in the sidebar header).
+  updates: {
+    check: () => ipcRenderer.invoke('updates:check'),
+    install: () => ipcRenderer.invoke('updates:install'),
+    version: () => ipcRenderer.invoke('updates:version'),
+    onStatus: (cb) => ipcRenderer.on('update-status', (_e, s) => cb(s))
   }
 });

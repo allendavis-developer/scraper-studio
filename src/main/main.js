@@ -165,6 +165,28 @@ function checkForUpdatesInteractive() {
   });
 }
 
+// IPC for the in-app Update button (sidebar header). Unlike the Help-menu check,
+// this reports status purely through 'update-status' events so a button can
+// reflect it (checking → downloading → ready), with no modal on the common
+// paths. The auto/launch flow still posts the same events, so the button shows
+// "Restart to update" even for an update found automatically.
+ipcMain.handle('updates:check', () => {
+  if (isDev || !app.isPackaged) { notifyRenderer('dev', { version: app.getVersion() }); return { dev: true }; }
+  wireUpdaterEvents();
+  updLog('INFO', 'manual update check (button)');
+  autoUpdater.checkForUpdates().catch((e) => {
+    updLog('ERROR', e);
+    notifyRenderer('error', { message: e && e.message ? e.message : String(e) });
+  });
+  return { ok: true };
+});
+ipcMain.handle('updates:install', () => {
+  updLog('INFO', 'user chose Restart to update (button)');
+  setImmediate(() => { try { autoUpdater.quitAndInstall(false, true); } catch (e) { updLog('ERROR', e); } });
+  return { ok: true };
+});
+ipcMain.handle('updates:version', () => app.getVersion());
+
 // Remove the "controlled by automation" tell: this makes navigator.webdriver
 // undefined and drops the automation banner, so pages don't see us as a bot.
 // (Must be set before the app is ready.)

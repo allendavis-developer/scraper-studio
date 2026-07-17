@@ -6749,6 +6749,64 @@ function applyTheme(theme) {
 })();
 
 // ===========================================================================
+// Software update button (the bar under the brand header)
+// ===========================================================================
+
+(function initUpdateButton() {
+  const bar = document.getElementById('updbar');
+  const btn = document.getElementById('update-btn');
+  const msg = document.getElementById('update-msg');
+  if (!bar || !btn || !window.harvest || !window.harvest.updates) return;
+
+  let ready = false; // an update has downloaded and is ready to install
+  let revertTimer = null;
+  const setMsg = (t) => { if (msg) msg.textContent = t || ''; };
+
+  function reset(text) {
+    ready = false;
+    bar.classList.remove('ready');
+    btn.disabled = false;
+    btn.textContent = '⭮ Check for updates';
+    setMsg(text || '');
+  }
+
+  btn.addEventListener('click', () => {
+    if (ready) { window.harvest.updates.install(); return; } // "Restart to update"
+    clearTimeout(revertTimer);
+    btn.disabled = true;
+    bar.classList.remove('ready');
+    btn.textContent = 'Checking…';
+    setMsg('');
+    window.harvest.updates.check();
+  });
+
+  window.harvest.updates.onStatus((s) => {
+    const state = s && s.state;
+    clearTimeout(revertTimer);
+    if (state === 'checking') { btn.disabled = true; btn.textContent = 'Checking…'; setMsg(''); }
+    else if (state === 'available') { btn.disabled = true; btn.textContent = 'Downloading…'; setMsg('v' + (s.version || '') + ' found'); }
+    else if (state === 'downloading') { btn.disabled = true; btn.textContent = 'Downloading…'; setMsg(Math.round(s.percent || 0) + '%'); }
+    else if (state === 'downloaded') {
+      ready = true; bar.classList.add('ready'); btn.disabled = false;
+      btn.textContent = '↻ Restart to update'; setMsg('v' + (s.version || '') + ' ready');
+    } else if (state === 'not-available') {
+      reset('You’re on the latest version' + (s.version ? ' (v' + s.version + ')' : ''));
+      revertTimer = setTimeout(() => setMsg(''), 6000);
+    } else if (state === 'dev') {
+      reset('Dev build — updates only in the installed app');
+      revertTimer = setTimeout(() => setMsg(''), 6000);
+    } else if (state === 'error') {
+      reset('Check failed — please try again shortly');
+      revertTimer = setTimeout(() => setMsg(''), 8000);
+    }
+  });
+
+  window.harvest.updates.version()
+    .then((v) => { if (v) btn.title = 'You have v' + v + ' — click to check for a newer version'; })
+    .catch(() => {});
+})();
+
+// ===========================================================================
 // Boot
 // ===========================================================================
 
