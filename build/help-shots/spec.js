@@ -102,14 +102,15 @@ const FIGURES = [
 
   // ---- Column shaping (side margins hold the labels) --------------------
   {
-    name: 'columns', shot: 'columns', crop: [430, 452, 1240, 360],
+    name: 'columns', shot: 'columns', crop: [430, 452, 1240, 362],
     items: [
-      { type: 'box', x: 738, y: 548, w: 508, h: 44 },
-      { type: 'label', x: 452, y: 546, text: 'Rename the CSV heading', w: 236 },
-      { type: 'arrow', x1: 690, y1: 566, x2: 736, y2: 568 },
-      { type: 'box', x: 1300, y: 548, w: 88, h: 150, color: 'blue' },
-      { type: 'label', x: 1420, y: 600, text: 'Reorder', w: 180, color: 'blue' },
-      { type: 'arrow', x1: 1418, y1: 620, x2: 1392, y2: 620, color: 'blue' },
+      { type: 'label', x: 436, y: 514, text: '⠿ Drag a column to reorder', w: 244 },
+      { type: 'arrow', x1: 690, y1: 552, x2: 714, y2: 560 },
+      { type: 'label', x: 436, y: 648, text: 'Rename the CSV heading', w: 236 },
+      { type: 'arrow', x1: 700, y1: 666, x2: 748, y2: 660 },
+      { type: 'box', x: 1260, y: 532, w: 126, h: 158, color: 'blue' },
+      { type: 'label', x: 1400, y: 556, text: '⤒ jump to top · ↑ ↓ nudge', w: 254, color: 'blue' },
+      { type: 'arrow', x1: 1398, y1: 578, x2: 1388, y2: 578, color: 'blue' },
     ],
   },
 

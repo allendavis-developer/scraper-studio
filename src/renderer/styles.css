@@ -1350,7 +1350,7 @@ select {
 /* column-shaping rows */
 .col-row {
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto;
+  grid-template-columns: auto auto 1fr auto auto auto auto;
   gap: 6px;
   align-items: center;
   padding: 4px 0;
@@ -1358,6 +1358,26 @@ select {
 }
 .col-row input[type='checkbox'] {
   width: auto;
+}
+.col-row .drag-handle {
+  cursor: grab;
+  color: var(--text-dim);
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+.col-row .drag-handle:active {
+  cursor: grabbing;
+}
+.col-row.dragging {
+  opacity: 0.4;
+}
+.col-row.drop-above {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+.col-row.drop-below {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
 }
 .col-row .src {
   font: 10px var(--mono);

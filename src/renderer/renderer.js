@@ -4598,12 +4598,14 @@ async function runSteps(opts) {
   authCheckedOnFail = false;
   hideAuthBanner();
 
-  // Every run starts from a clean sheet — no rows, discovered columns, or CSV
-  // shaping carried over from a previous run. Without this, results accumulate
-  // across runs and stale columns from an earlier date/table keep reappearing.
+  // Every run starts from a clean sheet of ROWS and freshly-discovered columns.
+  // The CSV SHAPE (columnConfig — labels, order, which columns are dropped) is
+  // deliberately KEPT, so shaping you did once persists across every later run.
+  // Columns are reconciled by key as rows arrive (see ensureColumn), and
+  // activeColumns() only shows/exports columns actually produced this run, so a
+  // stale column from a since-changed job never lingers in the output.
   results.length = 0;
   columns.length = 0;
-  columnConfig.length = 0;
   liveExtra = null;
   renderResults();
 
@@ -5166,13 +5168,7 @@ async function execStep(s, ctx) {
       // Make the added columns real output columns (so committed rows show/export
       // them). Rows still in ctx.listRows register themselves when they flush.
       const register = () => {
-        for (const c of bring) {
-          const nm = pfx + c;
-          if (!columns.includes(nm)) {
-            columns.push(nm);
-            columnConfig.push({ key: nm, label: nm, include: true });
-          }
-        }
+        for (const c of bring) ensureColumn(pfx + c);
       };
 
       let matched = 0;
@@ -5468,10 +5464,7 @@ function upsertCell(ctx, matchCol, matchVal, setCol, val) {
   // If we patched a row already in the visible results table, surface the new
   // column right away.
   if (results.includes(row)) {
-    if (!columns.includes(setCol)) {
-      columns.push(setCol);
-      columnConfig.push({ key: setCol, label: setCol, include: true });
-    }
+    ensureColumn(setCol);
     renderResults();
   }
   return { created };
@@ -5776,15 +5769,18 @@ function waitForLoad(maxWait = 15000, grace = 450) {
 // Results table + CSV
 // ===========================================================================
 
+// Register a column discovered in the output: mark it present this run, and add
+// it to the CSV shape ONLY if it isn't already configured. That "only if new"
+// is what makes shaping (labels / order / drops) survive across runs instead of
+// being rebuilt from scratch each time.
+function ensureColumn(key) {
+  if (!columns.includes(key)) columns.push(key);
+  if (!columnConfig.some((c) => c.key === key)) columnConfig.push({ key, label: key, include: true });
+}
+
 function addRow(row) {
   results.push(row);
-  for (const k of Object.keys(row)) {
-    if (!columns.includes(k)) {
-      columns.push(k);
-      // New source field → add to the export shape (included, labelled = key).
-      columnConfig.push({ key: k, label: k, include: true });
-    }
-  }
+  for (const k of Object.keys(row)) ensureColumn(k);
   renderResults();
 }
 
@@ -5798,16 +5794,16 @@ function stampColumn(fromIndex, key, value) {
       changed = true;
     }
   }
-  if (changed && !columns.includes(key)) {
-    columns.push(key);
-    columnConfig.push({ key, label: key, include: true });
-  }
-  if (changed) renderResults();
+  if (changed) { ensureColumn(key); renderResults(); }
 }
 
-// The columns actually shown/exported, in their configured order.
+// The columns actually shown/exported, in their configured (user) order. After a
+// run we also drop any configured column the current run didn't produce, so a
+// stale column left over from a since-changed job never shows up empty. Before
+// any run (columns empty — e.g. a freshly loaded job) we show all configured.
 function activeColumns() {
-  return columnConfig.filter((c) => c.include);
+  const inc = columnConfig.filter((c) => c.include);
+  return columns.length ? inc.filter((c) => columns.includes(c.key)) : inc;
 }
 
 // Show the rows produced so far but not yet committed (a grabbed table still in
@@ -5816,12 +5812,7 @@ function activeColumns() {
 function liveRender(ctx) {
   const pending = (ctx.listRows || []).concat(ctx.cellRows || []);
   for (const row of pending) {
-    for (const k of Object.keys(row)) {
-      if (!columns.includes(k)) {
-        columns.push(k);
-        columnConfig.push({ key: k, label: k, include: true });
-      }
-    }
+    for (const k of Object.keys(row)) ensureColumn(k);
   }
   liveExtra = pending;
   renderResults();
@@ -5902,10 +5893,39 @@ $('#shape-cols').addEventListener('click', () => {
   $('#cols-modal').classList.remove('hidden');
 });
 
+// Move the draft column at `from` to index `to` (clamped), then re-render.
+function moveCol(from, to) {
+  if (from == null || from < 0 || from >= colsDraft.length) return;
+  to = Math.max(0, Math.min(colsDraft.length - 1, to));
+  if (from === to) return;
+  const [item] = colsDraft.splice(from, 1);
+  colsDraft.splice(to, 0, item);
+  renderColsRows();
+}
+
+let dragColIdx = null;
+
 function renderColsRows() {
   const body = $('#cols-body');
   body.innerHTML = '';
   colsDraft.forEach((c, i) => {
+    const row = el('div', { className: 'col-row' });
+    row.dataset.idx = i;
+
+    // Drag handle — only the handle is draggable, so the label field stays
+    // fully editable (you can select text in it without starting a drag).
+    const handle = el('span', { className: 'drag-handle', textContent: '⠿', title: 'Drag to reorder' });
+    handle.draggable = true;
+    handle.addEventListener('dragstart', (e) => {
+      dragColIdx = i;
+      row.classList.add('dragging');
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); } catch (_) {}
+    });
+    handle.addEventListener('dragend', () => {
+      dragColIdx = null;
+      body.querySelectorAll('.col-row').forEach((r) => r.classList.remove('dragging', 'drop-above', 'drop-below'));
+    });
+
     const inc = el('input', { type: 'checkbox', checked: c.include });
     inc.addEventListener('change', () => (c.include = inc.checked));
 
@@ -5914,22 +5934,36 @@ function renderColsRows() {
 
     const src = el('span', { className: 'src', textContent: c.key, title: 'source field: ' + c.key });
 
+    const top = el('button', { textContent: '⤒', title: 'Move to top' });
+    top.addEventListener('click', () => moveCol(i, 0));
     const up = el('button', { textContent: '↑', title: 'Move up' });
-    up.addEventListener('click', () => {
-      if (i > 0) {
-        [colsDraft[i - 1], colsDraft[i]] = [colsDraft[i], colsDraft[i - 1]];
-        renderColsRows();
-      }
-    });
+    up.addEventListener('click', () => moveCol(i, i - 1));
     const down = el('button', { textContent: '↓', title: 'Move down' });
-    down.addEventListener('click', () => {
-      if (i < colsDraft.length - 1) {
-        [colsDraft[i + 1], colsDraft[i]] = [colsDraft[i], colsDraft[i + 1]];
-        renderColsRows();
-      }
+    down.addEventListener('click', () => moveCol(i, i + 1));
+
+    // Drop positioning: dropping on the top/bottom half of a row inserts
+    // above/below it. Works even with hundreds of rows.
+    row.addEventListener('dragover', (e) => {
+      if (dragColIdx == null) return;
+      e.preventDefault();
+      const r = row.getBoundingClientRect();
+      const below = e.clientY - r.top > r.height / 2;
+      row.classList.toggle('drop-below', below);
+      row.classList.toggle('drop-above', !below);
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-above', 'drop-below'));
+    row.addEventListener('drop', (e) => {
+      if (dragColIdx == null) return;
+      e.preventDefault();
+      const r = row.getBoundingClientRect();
+      const below = e.clientY - r.top > r.height / 2;
+      let target = i + (below ? 1 : 0);
+      if (dragColIdx < target) target--; // account for the removed source slot
+      moveCol(dragColIdx, target);
     });
 
-    body.append(el('div', { className: 'col-row' }, [inc, lbl, src, up, down]));
+    row.append(handle, inc, lbl, src, top, up, down);
+    body.append(row);
   });
 }
 
