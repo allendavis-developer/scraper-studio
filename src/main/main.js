@@ -11,27 +11,151 @@ const { realisticUserAgent, userAgentMetadata } = require('../shared/stealth');
 
 const isDev = process.argv.includes('--dev');
 
-// Auto-update from GitHub Releases. On launch (packaged builds only) we check the
-// project's latest release; if a newer version is published, electron-updater
-// downloads it in the background and, once ready, restarts into the new version.
-// Wrapped so a failed/offline check never blocks or crashes startup.
-function initAutoUpdate(win) {
-  if (isDev || !app.isPackaged) return; // nothing to update in a dev checkout
-  autoUpdater.autoDownload = true;
-  autoUpdater.on('update-downloaded', (info) => {
-    // Let the user know, then relaunch into the new version. quitAndInstall on
-    // the next tick so the notification/log flushes first.
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('update-status', { state: 'downloaded', version: info && info.version });
+// Auto-update from GitHub Releases. On launch (packaged builds only) we check
+// the project's latest release; if a newer version is published, electron-updater
+// downloads it in the background and prompts the user to restart into it.
+//
+// Everything the updater does is written to a log file in userData so a failed
+// or stuck update can actually be diagnosed — the previous version swallowed all
+// errors to an invisible console, which made "it didn't update" impossible to
+// debug. The window that owns the update prompts is tracked in `updaterWin`.
+let updaterWin = null;
+let updaterReady = false;      // handlers wired?
+let interactiveCheck = false;  // true while a user-triggered "Check for updates" runs
+
+function updaterLogPath() {
+  return path.join(app.getPath('userData'), 'updater.log');
+}
+
+function updLog(level, msg) {
+  const text = msg && msg.stack ? msg.stack : (typeof msg === 'object' ? JSON.stringify(msg) : String(msg));
+  const line = `[${new Date().toISOString()}] ${level} ${text}\n`;
+  try { fs.appendFileSync(updaterLogPath(), line); } catch (_) {}
+  try { console.log('[auto-update]', level, text); } catch (_) {}
+}
+
+// Minimal logger in electron-updater's expected shape (no extra dependency).
+const updaterLogger = {
+  info: (m) => updLog('INFO', m),
+  warn: (m) => updLog('WARN', m),
+  error: (m) => updLog('ERROR', m),
+  debug: (m) => updLog('DEBUG', m),
+};
+
+function notifyRenderer(state, extra) {
+  if (updaterWin && !updaterWin.isDestroyed()) {
+    updaterWin.webContents.send('update-status', Object.assign({ state }, extra || {}));
+  }
+}
+
+function wireUpdaterEvents() {
+  if (updaterReady) return;
+  updaterReady = true;
+
+  autoUpdater.logger = updaterLogger;
+  autoUpdater.autoDownload = true;          // fetch the update in the background
+  autoUpdater.autoInstallOnAppQuit = true;  // fallback: apply it on next normal quit
+
+  autoUpdater.on('checking-for-update', () => {
+    updLog('INFO', 'checking for update…');
+    notifyRenderer('checking');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    updLog('INFO', 'update available: ' + (info && info.version) + ' (downloading…)');
+    notifyRenderer('available', { version: info && info.version });
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    updLog('INFO', 'no update; on latest ' + (info && info.version));
+    notifyRenderer('not-available', { version: info && info.version });
+    if (interactiveCheck) {
+      interactiveCheck = false;
+      dialog.showMessageBox(updaterWin, {
+        type: 'info',
+        title: 'Scrape Studio',
+        message: `You’re on the latest version (${app.getVersion()}).`,
+      });
     }
-    setImmediate(() => {
-      try { autoUpdater.quitAndInstall(); } catch (_) {}
+  });
+
+  autoUpdater.on('download-progress', (p) => {
+    updLog('INFO', `downloading ${Math.round(p.percent)}% (${Math.round(p.bytesPerSecond / 1024)} KB/s)`);
+    notifyRenderer('downloading', { percent: p.percent });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    updLog('INFO', 'update downloaded: ' + (info && info.version) + ' — prompting to restart');
+    notifyRenderer('downloaded', { version: info && info.version });
+    interactiveCheck = false;
+    // Prompt rather than force-quit at launch: forcing quitAndInstall from the
+    // download event proved unreliable (the update stayed un-applied). Letting
+    // the user restart — or fall back to autoInstallOnAppQuit — is robust.
+    const choice = dialog.showMessageBoxSync(updaterWin, {
+      type: 'info',
+      buttons: ['Restart now', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Update ready',
+      message: `Scrape Studio ${info && info.version} has been downloaded.`,
+      detail: 'Restart now to finish updating. Otherwise it will be applied next time you quit.',
+    });
+    if (choice === 0) {
+      setImmediate(() => {
+        try { autoUpdater.quitAndInstall(false, true); }
+        catch (e) { updLog('ERROR', e); }
+      });
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    updLog('ERROR', err == null ? 'unknown error' : (err.stack || err.message || err));
+    notifyRenderer('error', { message: err && err.message ? err.message : String(err) });
+    if (interactiveCheck) {
+      interactiveCheck = false;
+      dialog.showMessageBox(updaterWin, {
+        type: 'error',
+        title: 'Update check failed',
+        message: 'Could not check for updates.',
+        detail: (err && err.message ? err.message : String(err)) + `\n\nLog: ${updaterLogPath()}`,
+      });
+    }
+  });
+}
+
+function initAutoUpdate(win) {
+  updaterWin = win;
+  if (isDev || !app.isPackaged) return; // nothing to update in a dev checkout
+  wireUpdaterEvents();
+  updLog('INFO', `launch check — current version ${app.getVersion()}`);
+  autoUpdater.checkForUpdates().catch((e) => updLog('ERROR', e));
+}
+
+// User-triggered check (Help ▸ Check for Updates…). Reports the outcome in a
+// dialog so the result is never silent, even in a dev checkout.
+function checkForUpdatesInteractive() {
+  if (isDev || !app.isPackaged) {
+    dialog.showMessageBox(updaterWin, {
+      type: 'info',
+      title: 'Scrape Studio',
+      message: 'Updates are only available in the installed app.',
+      detail: `This is a development build (v${app.getVersion()}).`,
+    });
+    return;
+  }
+  wireUpdaterEvents();
+  interactiveCheck = true;
+  updLog('INFO', 'manual update check requested');
+  autoUpdater.checkForUpdates().catch((e) => {
+    updLog('ERROR', e);
+    interactiveCheck = false;
+    dialog.showMessageBox(updaterWin, {
+      type: 'error',
+      title: 'Update check failed',
+      message: 'Could not check for updates.',
+      detail: (e && e.message ? e.message : String(e)) + `\n\nLog: ${updaterLogPath()}`,
     });
   });
-  autoUpdater.on('error', (err) => {
-    try { console.error('[auto-update]', err && err.message ? err.message : err); } catch (_) {}
-  });
-  autoUpdater.checkForUpdates().catch(() => {});
 }
 
 // Remove the "controlled by automation" tell: this makes navigator.webdriver
@@ -165,6 +289,18 @@ function buildMenu(win) {
         { type: 'separator' },
         { role: 'togglefullscreen' }
       ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        { label: 'Check for Updates…', click: () => checkForUpdatesInteractive() },
+        {
+          label: 'Open Update Log',
+          click: () => { require('electron').shell.openPath(updaterLogPath()); },
+        },
+        { type: 'separator' },
+        { label: `Scrape Studio ${app.getVersion()}`, enabled: false },
+      ],
     }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
