@@ -63,8 +63,9 @@ const isRateLimit = (err) => /\b429\b|too many requests|rate limit/i.test(String
 function describeUpdateError(err) {
   const raw = String((err && err.message) || err || 'unknown error');
   if (isRateLimit(err)) {
-    return 'GitHub is temporarily rate-limiting update checks from this network (HTTP 429). ' +
-      'It clears on its own — usually within a few minutes to an hour. The app keeps working; just try again later.';
+    return 'GitHub declined the update check (HTTP 429). The app keeps working. If this keeps happening, ' +
+      'download the latest installer manually from ' +
+      'https://github.com/allendavis-developer/scraper-studio/releases/latest and run it once.';
   }
   if (/ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNREFUSED|net::|getaddrinfo/i.test(raw)) {
     return 'Could not reach the update server — check your internet connection and try again.';
@@ -80,6 +81,19 @@ function wireUpdaterEvents() {
   autoUpdater.logger = updaterLogger;
   autoUpdater.autoDownload = true;          // fetch the update in the background
   autoUpdater.autoInstallOnAppQuit = true;  // fallback: apply it on next normal quit
+
+  // electron-updater makes its HTTP calls through Electron's DEFAULT session — the
+  // same session our stealth layer rewrites to a fake desktop-Chrome User-Agent
+  // (app.userAgentFallback + hardenSession, further down). That disguise is for
+  // scraping target sites; it must NOT bleed into our own calls to GitHub. A
+  // browser-UA'd process pulling release binaries looks like abuse to GitHub, which
+  // answers with a sticky HTTP 429 (an HTML error page) — the exact failure users
+  // saw on every launch. Send an honest, non-browser updater UA instead so GitHub
+  // treats us as a normal update client. Only the updater's requests are affected;
+  // the scraping <webview> partitions keep their disguise.
+  autoUpdater.requestHeaders = {
+    'User-Agent': `Scrape-Studio/${app.getVersion()} (auto-updater; +https://github.com/allendavis-developer/scraper-studio)`
+  };
 
   autoUpdater.on('checking-for-update', () => {
     updLog('INFO', 'checking for update');
