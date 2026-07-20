@@ -277,6 +277,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('the removed column is pruned from the saved shape', !afterPrune.keys.includes('price'), JSON.stringify(afterPrune.keys));
     check('shaping for a surviving column is kept (name still “Product”)', afterPrune.nameLabel === 'Product', afterPrune.nameLabel);
 
+    // ---- the columns MODAL reflects current steps without a re-run ----
+    console.log('\n[3d] opening the columns modal drops columns no current step produces');
+    // Inject a ghost column as if left behind by a since-removed step, then open
+    // the modal WITHOUT re-running: it must not appear (reconciled to the steps),
+    // while a column a current step still produces stays.
+    await R(() => columnConfig.push({ key: 'ghost_removed', label: 'Ghost', include: true }));
+    await R(() => document.getElementById('shape-cols').click());
+    await sleep(150);
+    const modalKeys = await R(() => [...document.querySelectorAll('#cols-body .col-row .src')].map((s) => s.textContent));
+    check('the modal drops a column no current step produces', !modalKeys.includes('ghost_removed'), JSON.stringify(modalKeys));
+    check('…and keeps a column a current step still produces', modalKeys.includes('name'), JSON.stringify(modalKeys));
+    await R(() => document.getElementById('cols-cancel').click());
+
     // ---- action steps drive real controls -----------------------------
     console.log('\n[4] action steps drive real controls');
     async function runSingle(makeStep) {

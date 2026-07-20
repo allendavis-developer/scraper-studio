@@ -4696,9 +4696,9 @@ async function runSteps(opts) {
 
     // A clean, complete run is the point where "the columns are whatever the
     // steps now produce" becomes true — so drop any leftover shaping for columns
-    // this run didn't produce (a since-deleted or renamed step). Skipped on an
+    // no current step produces (a since-deleted or renamed step). Skipped on an
     // aborted run, whose column set is only partial and would prune too much.
-    if (!abortRun) pruneColumnConfigToProduced();
+    if (!abortRun) reconcileColumnConfig();
   } finally {
     liveExtra = null; // drop references to this run's pending buckets
     clearStepMarks();
@@ -5809,28 +5809,75 @@ function stampColumn(fromIndex, key, value) {
   if (changed) { ensureColumn(key); renderResults(); }
 }
 
-// The columns actually shown/exported, in their configured (user) order. After a
-// run we also drop any configured column the current run didn't produce, so a
-// stale column left over from a since-changed job never shows up empty. Before
-// any run (columns empty — e.g. a freshly loaded job) we show all configured.
-function activeColumns() {
-  const inc = columnConfig.filter((c) => c.include);
-  return columns.length ? inc.filter((c) => columns.includes(c.key)) : inc;
+// The set of column keys that ACTUALLY hold data in the given rows — a key is
+// "filled" only if at least one row has a non-blank value for it. This is the
+// truth about which columns exist, not the registered-key list: rows routinely
+// carry keys with empty values (Spread writes '' for a measure a row lacks, a
+// cell-merge/loop leaves a column blank on some rows), and those must not surface
+// as ghost columns that are empty in every single row.
+function filledKeys(rows) {
+  const filled = new Set();
+  for (const r of rows) {
+    for (const k in r) {
+      const v = r[k];
+      if (v != null && String(v).trim() !== '') filled.add(k);
+    }
+  }
+  return filled;
 }
 
-// After a full run, drop configured columns the run DIDN'T produce from the
-// persistent shape itself — so a column left behind by a deleted or renamed step
-// stops cluttering the "shape columns" dialog and the saved job (activeColumns
-// already hid it from the output, but columnConfig kept accumulating it forever).
-// Order and labels of the survivors are untouched — that's the shaping we keep.
-// We reconcile against what the run PRODUCED (not a static read of the steps)
-// because Spread / Join / cell columns are named from the data and can't be known
-// ahead of time. Guarded by the caller to a clean, non-aborted run that produced
-// something, so a partial/aborted/0-row run never nukes the user's shaping.
-function pruneColumnConfigToProduced() {
-  if (!columns.length) return;
+// The columns actually shown/exported, in their configured (user) order. A column
+// only appears if some row has data for it — so a column that is empty in EVERY
+// row (a since-deleted/renamed step, or a blank written by Spread/merge) never
+// shows as an empty ghost. Before any rows exist (a freshly loaded job) we show
+// all configured so its headers still preview.
+function activeColumns() {
+  const inc = columnConfig.filter((c) => c.include);
+  const rows = liveExtra && liveExtra.length ? results.concat(liveExtra) : results;
+  if (!rows.length) return inc;
+  const filled = filledKeys(rows);
+  return inc.filter((c) => filled.has(c.key));
+}
+
+// The CSV column keys the CURRENT steps will produce, as far as is knowable
+// without running: named values sent to a column, cell-placement targets, and
+// table/list field names. Dynamic producers (Spread / Join) name their columns
+// from the data, so their exact keys aren't here — reconcileColumnConfig keeps
+// those separately. Loop/date vars are included when the step marks them for the
+// CSV.
+function producibleColumnKeys() {
+  const keys = new Set();
+  const add = (v) => { const t = (v == null ? '' : String(v)).trim(); if (t) keys.add(t); };
+  for (const s of flattenSteps(steps)) {
+    if (s.type === 'get' || s.type === 'scrape' || s.type === 'setVar' || s.type === 'formula') {
+      if (s.target === 'cell') { add(s.matchCol); add(s.setCol); }
+      else if ((s.target || 'column') === 'column') add(s.name);
+    }
+    if ((s.type === 'scrapeTable' || s.type === 'scrapeList') && s.keep !== 'dataset') {
+      for (const f of s.fields || []) if (f.include !== false) add(f.name);
+    }
+    if (s.type === 'forDates' && s.asColumn) add(s.var);
+    if ((s.type === 'forEach' || s.type === 'repeat') && s.asColumn) add(s.indexVar);
+  }
+  return keys;
+}
+
+function hasDynamicColumnStep() {
+  return flattenSteps(steps).some((s) => s.type === 'spread' || s.type === 'join');
+}
+
+// Make the saved column shape reflect ONLY the steps that are currently in the
+// job — so a column left over from a since-deleted or renamed step never lingers
+// in the "shape columns" dialog or the saved job. Static outputs are matched by
+// name; dynamic ones (Spread / Join, named from the data) are kept only when such
+// a step still exists AND the column currently holds data — so a real spread
+// column survives, but one whose Spread step was deleted is dropped. Order and
+// labels of the survivors are untouched — that's the shaping we keep.
+function reconcileColumnConfig() {
+  const producible = producibleColumnKeys();
+  const dyn = hasDynamicColumnStep() ? filledKeys(results) : new Set();
   const before = columnConfig.length;
-  columnConfig = columnConfig.filter((c) => columns.includes(c.key));
+  columnConfig = columnConfig.filter((c) => producible.has(c.key) || dyn.has(c.key));
   if (columnConfig.length !== before) markDirty();
 }
 
@@ -5921,6 +5968,9 @@ let csvEncoding = 'utf8bom';
 let colsDraft = [];
 
 $('#shape-cols').addEventListener('click', () => {
+  // Reflect the steps as they are RIGHT NOW, even without a re-run: drop any
+  // column left behind by a since-deleted or renamed step before showing the list.
+  reconcileColumnConfig();
   if (!columnConfig.length) {
     log('No columns yet — run a scrape first.', 'warn');
     return;
