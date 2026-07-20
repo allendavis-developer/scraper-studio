@@ -5848,9 +5848,18 @@ function renderResults() {
 }
 
 $('#clear-results').addEventListener('click', () => {
-  results = [];
-  columns = [];
-  columnConfig = [];
+  // Clear the DATA only, exactly like the top of a run does (see runSteps):
+  // empty the rows and the freshly-discovered column keys, but KEEP the CSV
+  // shape (columnConfig — labels, order, dropped columns). Wiping columnConfig
+  // here silently threw away hand-built shaping every time you cleared the
+  // panel, which contradicts "shaping persists across runs". With columns empty,
+  // activeColumns() falls back to the configured shape, so the header still
+  // shows what the next run will fill in.
+  // Mutate in place (not `results = []`) so an in-flight run's addRow() keeps
+  // pushing into the same array the panel and export read from.
+  results.length = 0;
+  columns.length = 0;
+  liveExtra = null;
   renderResults();
   log('Results cleared.', 'info');
 });
