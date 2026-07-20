@@ -1,6 +1,6 @@
 {
   "name": "scrape-studio",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Scrape Studio — visual web scraper with point-and-click element selection, visual step programming, and CSV export.",
   "main": "src/main/main.js",
   "scripts": {
