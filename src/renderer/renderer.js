@@ -3411,12 +3411,18 @@ function buildEditorBody(s, root) {
         });
 
         const name = el('input', { value: f.name, placeholder: 'column name' });
-        name.addEventListener('input', () => {
-          f.name = name.value;
-        });
-
         const src = el('span', { className: 'tc-src', textContent: f.label || '—',
           title: 'from the table heading: ' + (f.label || '(none)') });
+        name.addEventListener('input', () => {
+          f.name = name.value;
+          // The heading you type here is the ONE name for this column — it drives
+          // both the plain-table CSV AND the Spread report heading. The Spread
+          // used to name its columns from the fixed table <th> label (the grey
+          // text), which no box could change, so a rename never reached the
+          // report. Keep the label in step with the name so it does.
+          f.label = name.value;
+          src.textContent = f.label || '—';
+        });
 
         // "As": text, or a number (money / percent → a real number). It toggles
         // ONLY the number clean-up, preserving any others the user added in 🧹.

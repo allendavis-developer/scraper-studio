@@ -374,6 +374,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('all 10 column LABELS are unique too (so Spread shows/emits them distinctly)',
       new Set(df.labels).size === df.labels.length, JSON.stringify(df.labels));
 
+    // Renaming a column in the shaper must ALSO update its label — the Spread
+    // report names its columns from the label, so a rename that only touched the
+    // internal name never reached the report (the user's "still shows Margin
+    // Value 2" bug). Type into the 6th column's name box and assert both follow.
+    const renamed = await R(() => {
+      const box = document.querySelectorAll('.tcol-row')[5].querySelector('input:not([type=checkbox])');
+      box.value = 'Refund Qty';
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+      const f = editing.fields[5];
+      return { name: f.name, label: f.label };
+    });
+    check('renaming a column syncs its label too (so the Spread heading follows)',
+      renamed.name === 'Refund Qty' && renamed.label === 'Refund Qty', JSON.stringify(renamed));
+
     await R(() => document.getElementById('modal-save').click());
     await sleep(200);
     await R(() => { results.length = 0; columns.length = 0; columnConfig.length = 0; renderResults(); });
@@ -385,7 +399,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('the two Qty columns hold their OWN values (Sales 43 vs Refunds 0), not one repeated',
       (() => {
         const r = drows[0] || {};
-        const salesQty = r.qty, refundQty = r.qty2;
+        const salesQty = r.qty, refundQty = r['Refund Qty']; // 6th col was renamed above
         return String(salesQty) === '43' && String(refundQty) === '0';
       })(), JSON.stringify(drows[0]));
   } catch (e) {
