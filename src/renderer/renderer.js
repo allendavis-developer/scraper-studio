@@ -4693,6 +4693,12 @@ async function runSteps(opts) {
     log(`✓ Run finished — ${results.length} row(s) total`, results.length ? 'ok' : 'warn');
     if (!results.length && !authLostState) explainNoRows(ctx);
     else if (results.length) warnPartialRows();
+
+    // A clean, complete run is the point where "the columns are whatever the
+    // steps now produce" becomes true — so drop any leftover shaping for columns
+    // this run didn't produce (a since-deleted or renamed step). Skipped on an
+    // aborted run, whose column set is only partial and would prune too much.
+    if (!abortRun) pruneColumnConfigToProduced();
   } finally {
     liveExtra = null; // drop references to this run's pending buckets
     clearStepMarks();
@@ -5810,6 +5816,22 @@ function stampColumn(fromIndex, key, value) {
 function activeColumns() {
   const inc = columnConfig.filter((c) => c.include);
   return columns.length ? inc.filter((c) => columns.includes(c.key)) : inc;
+}
+
+// After a full run, drop configured columns the run DIDN'T produce from the
+// persistent shape itself — so a column left behind by a deleted or renamed step
+// stops cluttering the "shape columns" dialog and the saved job (activeColumns
+// already hid it from the output, but columnConfig kept accumulating it forever).
+// Order and labels of the survivors are untouched — that's the shaping we keep.
+// We reconcile against what the run PRODUCED (not a static read of the steps)
+// because Spread / Join / cell columns are named from the data and can't be known
+// ahead of time. Guarded by the caller to a clean, non-aborted run that produced
+// something, so a partial/aborted/0-row run never nukes the user's shaping.
+function pruneColumnConfigToProduced() {
+  if (!columns.length) return;
+  const before = columnConfig.length;
+  columnConfig = columnConfig.filter((c) => columns.includes(c.key));
+  if (columnConfig.length !== before) markDirty();
 }
 
 // Show the rows produced so far but not yet committed (a grabbed table still in

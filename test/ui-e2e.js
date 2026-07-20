@@ -255,6 +255,28 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const headers2 = await R(() => [...document.querySelectorAll('#results-table th')].map((t) => t.textContent));
     check('rename + drop applied to table', JSON.stringify(headers2) === JSON.stringify(['Product']), headers2.join(','));
 
+    // ---- a since-removed column drops out of the persistent shape ------
+    console.log('\n[3c] removing a column from the steps prunes it from the saved shape');
+    // 'price' is still in columnConfig (dropped, not deleted). Remove the field
+    // that produced it, then re-run: the column is no longer produced, so it must
+    // fall out of columnConfig — while the rename kept for 'name' still survives.
+    const beforePrune = await R(() => columnConfig.map((c) => c.key));
+    check('price is still in the saved shape before the step changes', beforePrune.includes('price'), JSON.stringify(beforePrune));
+    await R(() => {
+      const st = steps.find((s) => s.type === 'scrapeList');
+      st.fields = st.fields.filter((f) => f.name !== 'price');
+      renderSteps();
+    });
+    await R(() => document.getElementById('run').click());
+    await waitRunDone();
+    await sleep(200);
+    const afterPrune = await R(() => ({
+      keys: columnConfig.map((c) => c.key),
+      nameLabel: (columnConfig.find((c) => c.key === 'name') || {}).label
+    }));
+    check('the removed column is pruned from the saved shape', !afterPrune.keys.includes('price'), JSON.stringify(afterPrune.keys));
+    check('shaping for a surviving column is kept (name still “Product”)', afterPrune.nameLabel === 'Product', afterPrune.nameLabel);
+
     // ---- action steps drive real controls -----------------------------
     console.log('\n[4] action steps drive real controls');
     async function runSingle(makeStep) {
