@@ -334,6 +334,60 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const jrows = await R(() => JSON.parse(JSON.stringify(results)));
     check('the CSV has only the 3 real columns — no col4 / col5',
       jrows.length === 3 && Object.keys(jrows[0]).join(',') === 'item,qty,price', JSON.stringify(jrows[0]));
+
+    // ---- [6] Duplicate headers (Sales block + Refunds block) must NOT clobber
+    //          each other — every column gets a unique name AND label so both the
+    //          CSV row objects and the Spread pivot keep all the data. -----------
+    console.log('\n[6] Duplicate headers — repeated columns each survive, uniquely named');
+    const dup = pathToFileURL(path.join(__dirname, 'fixtures', 'dupcols.html')).toString();
+    await R((u) => {
+      setStartUrl(u);
+      steps.length = 0;
+      renderSteps();
+      const i = document.getElementById('url');
+      i.value = u;
+      document.getElementById('go').click();
+    }, dup);
+    await waitUrl('dupcols.html');
+    await sleep(900);
+
+    await R(() => document.getElementById('add-step').click());
+    await sleep(80);
+    await R(() => document.querySelector('#addstep-body [data-add="scrapeTable"]').click());
+    await sleep(200);
+    await R(() => document.querySelector('#modal-body .pick-btn').click());
+    await sleep(250);
+    await guestClick('table.table-hover tbody tr:nth-of-type(1) td:nth-of-type(1)'); // "Linds"
+    await sleep(700);
+    if (await R(() => !!document.querySelector('.choice'))) {
+      await R(() => document.querySelector('.choice button').click());
+      await sleep(500);
+    }
+    await sleep(400);
+
+    const df = await R(() => ({
+      names: editing.fields.map((f) => f.name),
+      labels: editing.fields.map((f) => f.label)
+    }));
+    check('all 10 column NAMES are unique (the two Qty / Margin columns disambiguated)',
+      new Set(df.names).size === df.names.length && df.names.length === 10, JSON.stringify(df.names));
+    check('all 10 column LABELS are unique too (so Spread shows/emits them distinctly)',
+      new Set(df.labels).size === df.labels.length, JSON.stringify(df.labels));
+
+    await R(() => document.getElementById('modal-save').click());
+    await sleep(200);
+    await R(() => { results.length = 0; columns.length = 0; columnConfig.length = 0; renderResults(); });
+    await R(() => document.getElementById('run').click());
+    await waitRunDone();
+    const drows = await R(() => JSON.parse(JSON.stringify(results)));
+    check('every row keeps all 10 values — the second Qty/Margin set is NOT lost',
+      drows.length === 3 && Object.keys(drows[0]).length === 10, JSON.stringify(drows[0]));
+    check('the two Qty columns hold their OWN values (Sales 43 vs Refunds 0), not one repeated',
+      (() => {
+        const r = drows[0] || {};
+        const salesQty = r.qty, refundQty = r.qty2;
+        return String(salesQty) === '43' && String(refundQty) === '0';
+      })(), JSON.stringify(drows[0]));
   } catch (e) {
     FAIL++;
     console.log('  ✗ EXCEPTION: ' + e.message);

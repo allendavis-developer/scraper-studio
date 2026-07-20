@@ -241,6 +241,28 @@
       });
     }
 
+    // Duplicate headers are common in real reports — a "Sales" block and a
+    // "Refunds" block can each carry Qty / Margin Value / Margin % columns, so the
+    // <thead> has the same text twice. Both the row-builder (o[name]=…) and the
+    // Spread pivot key off name AND label, so identical ones silently overwrite:
+    // the second column's data vanishes. Give every column a UNIQUE name and label
+    // by suffixing repeats (qty, qty2; "Margin Value", "Margin Value (2)"). The
+    // positional selector already distinguishes them, so this loses no data.
+    const seenNames = new Set();
+    const seenLabels = new Set();
+    for (const col of columns) {
+      let n = col.name;
+      for (let k = 2; seenNames.has(n); k++) n = col.name + k;
+      seenNames.add(n);
+      col.name = n;
+      if (col.label) {
+        let l = col.label;
+        for (let k = 2; seenLabels.has(l); k++) l = col.label + ' (' + k + ')';
+        seenLabels.add(l);
+        col.label = l;
+      }
+    }
+
     // Summary rows: a class shared by SOME (not all) rows whose name reads like
     // a total — e.g. <tr class="total">. Also catch rows whose first cell says so.
     const counts = {};
