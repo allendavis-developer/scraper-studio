@@ -22,10 +22,20 @@
 
   // ---- Selector generation (needs `document`) -----------------------------
 
+  // Interaction/state classes (focus, validation, open/closed, drag…) toggle at
+  // runtime. They'd be present while Picking (the field is focused/active right
+  // then) but gone at Test/Scrape time, so a selector containing one matches
+  // nothing later. Reject the SMACSS/Angular state prefixes and common bare words.
+  function isStateClass(c) {
+    if (/^(is-|has-|ng-)/i.test(c)) return true; // is-focused, has-error, ng-dirty…
+    return /^(focus|focused|active|hover|hovered|selected|open|opened|closed|expanded|collapsed|dragging|drag|loading|dirty|touched|pristine|disabled|checked|filled|pressed|highlighted)$/i.test(c);
+  }
+
   function isStableClass(c) {
     if (!c) return false;
     if (/^(css-|sc-|jsx-|_)/.test(c)) return false; // framework-generated
     if (/[0-9]{4,}/.test(c)) return false; // long digit runs => generated
+    if (isStateClass(c)) return false; // transient runtime state => unreliable
     return /^[a-zA-Z][\w-]*$/.test(c);
   }
 
@@ -44,6 +54,25 @@
     return i;
   }
 
+  // Form controls seldom have a usable id but usually carry a stable, semantic
+  // attribute (name/placeholder/aria-label/data-testid). Prefer it: it's unique,
+  // human-readable, and survives reordering far better than a positional path —
+  // and it's what tells otherwise-identical fields (start date vs end date) apart,
+  // where a class/position selector would collapse onto the first match.
+  function stableAttrSelector(el) {
+    const tag = el.tagName.toLowerCase();
+    if (tag !== 'input' && tag !== 'select' && tag !== 'textarea') return '';
+    for (const attr of ['name', 'placeholder', 'aria-label', 'data-testid']) {
+      const val = el.getAttribute(attr);
+      if (!val || val.length > 80) continue;
+      const sel = tag + '[' + attr + '=' + JSON.stringify(val) + ']';
+      try {
+        if (document.querySelectorAll(sel).length === 1) return sel;
+      } catch (_) {}
+    }
+    return '';
+  }
+
   // Build a selector: unique enough, resilient to minor page changes.
   function cssPath(el) {
     if (!(el instanceof Element)) return '';
@@ -52,6 +81,9 @@
       const byId = '#' + el.id;
       if (document.querySelectorAll(byId).length === 1) return byId;
     }
+
+    const attrSel = stableAttrSelector(el);
+    if (attrSel) return attrSel;
 
     const parts = [];
     let cur = el;
@@ -265,9 +297,11 @@
   function tableInfoExpr(selector) {
     return `(() => {
       const HEADERISH = ${J(HEADERISH)};
+      const isStateClass = ${isStateClass.toString()};
       const isStableClass = ${isStableClass.toString()};
       const classSelector = ${classSelector.toString()};
       const indexOfType = ${indexOfType.toString()};
+      const stableAttrSelector = ${stableAttrSelector.toString()};
       const cssPath = ${cssPath.toString()};
       const slugify = ${slugify.toString()};
       const looksNumeric = ${looksNumeric.toString()};
@@ -648,6 +682,7 @@
     isStableClass,
     classSelector,
     indexOfType,
+    stableAttrSelector,
     cssPath,
     listSelector,
     deepElementFromPoint,
